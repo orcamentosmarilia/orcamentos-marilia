@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { Camera, Save, Loader2, Eye, EyeOff, X, ImagePlus, KeyRound, Mail, User } from "lucide-react";
+import { Camera, Save, Loader2, Eye, EyeOff, X, ImagePlus, KeyRound, Mail } from "lucide-react";
 
 interface UserProfile {
   id: string;
@@ -66,9 +66,10 @@ export default function OrcamentosLayout({ children }: { children: React.ReactNo
 
   async function fetchUserProfile(email: string) {
     try {
-      const { data: realUser, error: realUserError } = await supabase
-        .from("admin_users").select("*").eq("email", email).single();
-      if (realUserError) throw realUserError;
+      // Usa rota server-side para não expor admin_users via anon key
+      const res = await fetch(`/api/user/profile?email=${encodeURIComponent(email)}`);
+      if (!res.ok) throw new Error('Usuário não encontrado');
+      const { user: realUser } = await res.json();
 
       const impStr = localStorage.getItem("marilia_impersonated_user");
       let activeUser = realUser;
@@ -121,8 +122,12 @@ export default function OrcamentosLayout({ children }: { children: React.ReactNo
     };
     try {
       setLoading(true);
-      const { error } = await supabase.from("admin_users").update(updates).eq("id", user.id);
-      if (error) throw error;
+      const res = await fetch('/api/user/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_profile', userId: user.id, updates }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
       setUser({ ...user, ...updates });
       setShowCompletionModal(false);
     } catch (err: any) {
@@ -156,9 +161,13 @@ export default function OrcamentosLayout({ children }: { children: React.ReactNo
   /* ── Profile modal: verify current password ── */
   async function verifyPassword(password: string): Promise<boolean> {
     if (!user) return false;
-    const { data } = await supabase
-      .from("admin_users").select("id").eq("id", user.id).eq("password", password).single();
-    return !!data;
+    const res = await fetch('/api/user/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'verify_password', userId: user.id, currentPassword: password }),
+    });
+    const data = await res.json();
+    return !!data.valid;
   }
 
   /* ── Profile modal: change photo ── */
@@ -173,8 +182,12 @@ export default function OrcamentosLayout({ children }: { children: React.ReactNo
       const { error: upErr } = await supabase.storage.from("profile-images").upload(filePath, file, { upsert: true });
       if (upErr) throw upErr;
       const { data: { publicUrl } } = supabase.storage.from("profile-images").getPublicUrl(filePath);
-      const { error: upd } = await supabase.from("admin_users").update({ photo_url: publicUrl }).eq("id", user.id);
-      if (upd) throw upd;
+      const updRes = await fetch('/api/user/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_profile', userId: user.id, updates: { photo_url: publicUrl } }),
+      });
+      if (!updRes.ok) throw new Error('Erro ao atualizar foto');
       setUser({ ...user, photo_url: publicUrl });
     } catch (err: any) {
       setProfileError("Erro ao enviar foto: " + err.message);
@@ -190,8 +203,12 @@ export default function OrcamentosLayout({ children }: { children: React.ReactNo
     try {
       const ok = await verifyPassword(currentPassword);
       if (!ok) { setProfileError("Senha atual incorreta."); return; }
-      const { error } = await supabase.from("admin_users").update({ email: newEmail.trim() }).eq("id", user!.id);
-      if (error) throw error;
+      const res2 = await fetch('/api/user/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_email', userId: user!.id, currentPassword, newEmail: newEmail.trim() }),
+      });
+      if (!res2.ok) throw new Error((await res2.json()).error);
       const session = JSON.parse(localStorage.getItem("marilia_admin_session") || "{}");
       localStorage.setItem("marilia_admin_session", JSON.stringify({ ...session, email: newEmail.trim() }));
       setUser({ ...user!, email: newEmail.trim() });
@@ -213,8 +230,12 @@ export default function OrcamentosLayout({ children }: { children: React.ReactNo
     try {
       const ok = await verifyPassword(currentPassword);
       if (!ok) { setProfileError("Senha atual incorreta."); return; }
-      const { error } = await supabase.from("admin_users").update({ password: newPassword }).eq("id", user!.id);
-      if (error) throw error;
+      const res2 = await fetch('/api/user/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_password', userId: user!.id, currentPassword, newPassword }),
+      });
+      if (!res2.ok) throw new Error((await res2.json()).error);
       setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
       alert("Senha atualizada com sucesso!");
     } catch (err: any) {
