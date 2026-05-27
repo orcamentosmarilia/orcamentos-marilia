@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Login | marília — Coffee Break &amp; Eventos</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&amp;family=DM+Sans:wght@400;500;600;700&amp;family=Lora:ital,wght@0,400;0,600;0,700;1,400&amp;family=Plus+Jakarta+Sans:wght@300;400;500;600&amp;family=Newsreader:ital,wght@0,400;0,600;1,400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary": "#665958",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-dim": "#ead6d3",
+                        "on-primary-fixed": "#410001",
+                        "on-error-container": "#93000a",
+                        "secondary": "#904857",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed": "#ffd9de",
+                        "surface-container-high": "#f8e4e1",
+                        "tertiary-container": "#7f7270",
+                        "on-primary-fixed-variant": "#8f0f0f",
+                        "tertiary-fixed-dim": "#d3c3c1",
+                        "on-surface-variant": "#59413d",
+                        "on-tertiary-fixed-variant": "#504443",
+                        "error": "#ba1a1a",
+                        "background": "#fff8f7",
+                        "surface-bright": "#fff8f7",
+                        "surface-tint": "#b12b23",
+                        "primary-fixed-dim": "#ffb4aa",
+                        "inverse-on-surface": "#ffedea",
+                        "inverse-surface": "#3a2e2c",
+                        "tertiary-fixed": "#f0dfdd",
+                        "outline": "#8d706c",
+                        "inverse-primary": "#ffb4aa",
+                        "on-primary-container": "#fffcff",
+                        "primary": "#af2922",
+                        "on-secondary-fixed-variant": "#733140",
+                        "on-error": "#ffffff",
+                        "on-tertiary-fixed": "#221919",
+                        "surface-container-highest": "#f3dedb",
+                        "outline-variant": "#e1bfba",
+                        "primary-fixed": "#ffdad5",
+                        "on-primary": "#ffffff",
+                        "on-secondary-fixed": "#3c0516",
+                        "on-secondary": "#ffffff",
+                        "on-surface": "#241918",
+                        "primary-container": "#d14237",
+                        "on-tertiary-container": "#fffcff",
+                        "on-background": "#241918",
+                        "surface-variant": "#f3dedb",
+                        "secondary-container": "#ffa5b5",
+                        "secondary-fixed-dim": "#ffb2bf",
+                        "on-secondary-container": "#7b3746",
+                        "surface-container-low": "#fff0ee",
+                        "surface-container": "#fee9e6",
+                        "surface": "#fff8f7",
+                        "error-container": "#ffdad6",
+                        "brand-wine": "#5C1F2E",
+                        "brand-red": "#D14237",
+                        "brand-badge-bg": "#3D1320",
+                        "brand-placeholder": "#C4ABA8"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "brand-card": "20px",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Newsreader", "serif"],
+                        "body": ["Plus Jakarta Sans", "sans-serif"],
+                        "label": ["Plus Jakarta Sans", "sans-serif"],
+                        "artisan": ["Dancing Script", "cursive"],
+                        "editor": ["Lora", "serif"],
+                        "architect": ["DM Sans", "sans-serif"]
+                    }
+                },
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #5C1F2E;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .bg-pattern-circles {
+            background-image: radial-gradient(circle, rgba(209,66,55,0.08) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen relative overflow-hidden font-body">
+<!-- Decorative Elements -->
+<div class="absolute inset-0 bg-pattern-circles pointer-events-none"></div>
+<div class="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-brand-red opacity-[0.03] blur-3xl"></div>
+<div class="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-brand-red opacity-[0.03] blur-3xl"></div>
+<!-- Login Container -->
+<main class="relative z-10 w-full max-w-[400px] mx-4">
+<div class="bg-surface-container-lowest rounded-brand-card p-[48px] shadow-2xl shadow-black/20 flex flex-col items-center">
+<!-- Logo Header -->
+<header class="flex flex-col items-center mb-10">
+<h1 class="font-artisan text-[32px] text-brand-red leading-none mb-1">marília</h1>
+<div class="bg-brand-badge-bg px-2 py-0.5 rounded-sm">
+<span class="font-architect font-semibold text-[10px] text-white tracking-[0.15em] uppercase">[COFFEE BREAK]</span>
+</div>
+<p class="mt-4 font-architect text-brand-placeholder text-sm tracking-wide">sistema de orçamentos</p>
+</header>
+<!-- Login Form -->
+<form class="w-full space-y-6">
+<!-- E-mail Input -->
+<div class="space-y-2">
+<label class="block font-architect font-semibold text-[0.75rem] text-brand-wine tracking-wider uppercase" for="email">
+                        E-mail
+                    </label>
+<div class="relative">
+<input class="w-full h-12 px-4 bg-surface-container-low border-none rounded-lg focus:ring-2 focus:ring-brand-red/50 text-on-surface font-architect placeholder-brand-placeholder" id="email" name="email" placeholder="seu@email.com" type="email"/>
+</div>
+</div>
+<!-- Password Input -->
+<div class="space-y-2">
+<div class="flex justify-between items-end">
+<label class="block font-architect font-semibold text-[0.75rem] text-brand-wine tracking-wider uppercase" for="password">
+                            Senha
+                        </label>
+</div>
+<div class="relative">
+<input class="w-full h-12 px-4 bg-surface-container-low border-none rounded-lg focus:ring-2 focus:ring-brand-red/50 text-on-surface font-architect placeholder-brand-placeholder" id="password" name="password" placeholder="••••••••" type="password"/>
+</div>
+</div>
+<!-- Action Button -->
+<button class="w-full h-[48px] bg-gradient-to-br from-brand-red to-[#E8635A] text-white font-architect font-bold rounded-[10px] hover:opacity-95 transition-all shadow-md shadow-brand-red/20 active:scale-[0.98]" type="submit">
+                    Entrar
+                </button>
+<!-- Footer Links -->
+<div class="flex justify-center pt-4">
+<a class="font-architect font-medium text-sm text-brand-red hover:underline decoration-brand-red/30 underline-offset-4" href="#">
+                        Esqueci minha senha
+                    </a>
+</div>
+</form>
+</div>
+<!-- Secondary Decoration (Bento Style Suggestion) -->
+<div class="mt-8 flex justify-center space-x-6 opacity-40">
+<div class="flex items-center space-x-2 text-rose-200/60">
+<span class="material-symbols-outlined text-sm" data-icon="verified_user">verified_user</span>
+<span class="text-[10px] font-architect uppercase tracking-widest">Acesso Seguro</span>
+</div>
+<div class="flex items-center space-x-2 text-rose-200/60">
+<span class="material-symbols-outlined text-sm" data-icon="language">language</span>
+<span class="text-[10px] font-architect uppercase tracking-widest">V. 2.4.0</span>
+</div>
+</div>
+</main>
+<!-- Visual Polish: Content Image Background (Abstract & Out of Focus) -->
+<div class="fixed top-0 left-0 w-full h-full -z-10 opacity-10">
+<img alt="" class="w-full h-full object-cover grayscale contrast-125 mix-blend-overlay" data-alt="Close-up of artistic coffee latte art with rich crema and soft steam rising in a dimly lit high-end cafe atmosphere" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAwXVUmhhMntp94YdIW7nBpAVKgHI72d955_uNxQA2pkk74LP9f0zSo4F9jHmoshTkHVQIpMTVFK7E32g60hdePNxDy5g0-_2cdRThF5gNHw3GMo09FVh5iJYETLz_795ruNWWCQvck0hJYRdhXYFZmgLDs-04A3ZQ-Mvw8alz_950HyeTORIoNbKDRM9KmihpmY3Ph7QvmgGnCOUhJafdrEExw8tSsBePJ8qDX-xmSgMReGSh_UsupzJQeSDKxECp8nESqvZj7UQ"/>
+</div>
+</body></html>

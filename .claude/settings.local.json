@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Write",
+      "Edit",
+      "Bash(npm run *)",
+      "Bash(taskkill /PID 21612 /F)",
+      "PowerShell(taskkill /PID 21612 /F)",
+      "PowerShell(taskkill /F /IM node.exe 2>$null)",
+      "mcp__claude_ai_Supabase__list_projects",
+      "mcp__claude_ai_Supabase__list_tables",
+      "mcp__claude_ai_Supabase__execute_sql",
+      "mcp__claude_ai_Supabase__restore_project",
+      "mcp__supabase__execute_sql",
+      "PowerShell(Start-Process -FilePath \"npm\" -ArgumentList \"run\",\"dev\" -WorkingDirectory \"c:\\\\Users\\\\Pippa\\\\.gemini\\\\antigravity\\\\scratch\\\\marilia-orcamentos\" -WindowStyle Normal)",
+      "Bash(cp \"c:/Users/Pippa/.gemini/antigravity/scratch/marilia-orcamentos/src/app/settings/page.tsx\" \"c:/Users/Pippa/.gemini/antigravity/scratch/marilia-orcamentos/src/app/orcamentos/settings/page.tsx\")",
+      "mcp__supabase__list_projects",
+      "mcp__supabase__apply_migration"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\Pippa\\.claude\\projects\\c--Users-Pippa--gemini-antigravity-scratch-marilia-orcamentos\\memory",
+      "c:\\Users\\Pippa\\.gemini\\antigravity\\scratch\\marilia-orcamentos\\src\\app\\settings"
+    ]
+  }
+}

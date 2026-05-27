@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+
+<html lang="pt-br"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&amp;family=Lora:ital,wght@0,400..700;1,400..700&amp;family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&amp;family=Plus+Jakarta+Sans:wght@300;400;500;600;700&amp;family=Newsreader:opsz,wght@6..72,200..800&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "tertiary": "#665958",
+                      "surface-container-lowest": "#ffffff",
+                      "surface-dim": "#ead6d3",
+                      "on-primary-fixed": "#410001",
+                      "on-error-container": "#93000a",
+                      "secondary": "#904857",
+                      "on-tertiary": "#ffffff",
+                      "secondary-fixed": "#ffd9de",
+                      "surface-container-high": "#f8e4e1",
+                      "tertiary-container": "#7f7270",
+                      "on-primary-fixed-variant": "#8f0f0f",
+                      "tertiary-fixed-dim": "#d3c3c1",
+                      "on-surface-variant": "#59413d",
+                      "on-tertiary-fixed-variant": "#504443",
+                      "error": "#ba1a1a",
+                      "background": "#fff8f7",
+                      "surface-bright": "#fff8f7",
+                      "surface-tint": "#b12b23",
+                      "primary-fixed-dim": "#ffb4aa",
+                      "inverse-on-surface": "#ffedea",
+                      "inverse-surface": "#3a2e2c",
+                      "tertiary-fixed": "#f0dfdd",
+                      "outline": "#8d706c",
+                      "inverse-primary": "#ffb4aa",
+                      "on-primary-container": "#fffcff",
+                      "primary": "#af2922",
+                      "on-secondary-fixed-variant": "#733140",
+                      "on-error": "#ffffff",
+                      "on-tertiary-fixed": "#221919",
+                      "surface-container-highest": "#f3dedb",
+                      "outline-variant": "#e1bfba",
+                      "primary-fixed": "#ffdad5",
+                      "on-primary": "#ffffff",
+                      "on-secondary-fixed": "#3c0516",
+                      "on-secondary": "#ffffff",
+                      "on-surface": "#241918",
+                      "primary-container": "#d14237",
+                      "on-tertiary-container": "#fffcff",
+                      "on-background": "#241918",
+                      "surface-variant": "#f3dedb",
+                      "secondary-container": "#ffa5b5",
+                      "secondary-fixed-dim": "#ffb2bf",
+                      "on-secondary-container": "#7b3746",
+                      "surface-container-low": "#fff0ee",
+                      "surface-container": "#fee9e6",
+                      "surface": "#fff8f7",
+                      "error-container": "#ffdad6"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "fontFamily": {
+                      "headline": ["Lora", "serif"],
+                      "body": ["DM Sans", "sans-serif"],
+                      "label": ["DM Sans", "sans-serif"],
+                      "artisan": ["Dancing Script", "cursive"]
+              }
+            },
+          },
+        }
+      </script>
+<style>
+        body {
+            background-color: #FDF6F2;
+            color: #6B5C5A;
+            font-family: 'DM Sans', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .font-lora { font-family: 'Lora', serif; }
+        .font-dancing { font-family: 'Dancing Script', cursive; }
+        .font-dm { font-family: 'DM Sans', sans-serif; }
+    </style>
+</head>
+<body class="bg-[#FDF6F2]">
+<!-- Sidebar Wrapper -->
+<aside class="fixed left-0 top-0 h-screen w-[220px] z-50 bg-[#5C1F2E] dark:bg-rose-950 flex flex-col py-8 px-0 backdrop-blur-lg shadow-2xl">
+<div class="px-6 mb-10">
+<h1 class="font-dancing text-3xl text-white leading-tight">marília</h1>
+<p class="text-[10px] tracking-[0.2em] text-rose-200/50 uppercase font-dm font-bold">COFFEE BREAK</p>
+</div>
+<nav class="flex-1 flex flex-col gap-1">
+<!-- Active: Dashboard -->
+<a class="flex items-center gap-3 px-6 py-3 bg-[#D14237]/15 border-l-4 border-[#D14237] text-white font-medium transition-all" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="dashboard">dashboard</span>
+<span class="text-[13px] tracking-wide">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-rose-200/60 hover:text-white hover:bg-white/5 transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="event_seat">event_seat</span>
+<span class="text-[13px] tracking-wide">Event Schedule</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-rose-200/60 hover:text-white hover:bg-white/5 transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="restaurant_menu">restaurant_menu</span>
+<span class="text-[13px] tracking-wide">Menu Curator</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-rose-200/60 hover:text-white hover:bg-white/5 transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="contacts">contacts</span>
+<span class="text-[13px] tracking-wide">Client Registry</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-rose-200/60 hover:text-white hover:bg-white/5 transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="payments">payments</span>
+<span class="text-[13px] tracking-wide">Financial Reports</span>
+</a>
+</nav>
+<div class="mt-auto px-6 flex flex-col gap-4 border-t border-white/5 pt-6">
+<button class="bg-[#D14237] hover:bg-[#E8635A] text-white rounded-lg py-2.5 px-4 text-xs font-bold font-dm transition-all flex items-center justify-center gap-2 shadow-lg shadow-rose-950/20">
+<span class="material-symbols-outlined text-sm" data-icon="add" style="font-variation-settings: 'FILL' 0, 'wght' 700;">add</span>
+                New Event
+            </button>
+<div class="flex flex-col gap-2">
+<a class="flex items-center gap-3 text-rose-200/40 hover:text-white text-[12px] transition-all" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="settings">settings</span>
+                    Settings
+                </a>
+<a class="flex items-center gap-3 text-rose-200/40 hover:text-white text-[12px] transition-all" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="help_outline">help_outline</span>
+                    Support
+                </a>
+</div>
+</div>
+</aside>
+<!-- Top Header -->
+<header class="fixed top-0 right-0 left-[220px] h-[60px] z-40 bg-white/90 backdrop-blur-md flex items-center justify-between px-8 border-b border-[#F5D8D5]/20 shadow-sm shadow-rose-900/5">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-rose-300 text-lg" data-icon="search">search</span>
+<input class="w-full bg-[#FDF6F2] border-none rounded-full py-1.5 pl-10 pr-4 text-xs font-dm focus:ring-1 ring-[#D14237]/30 transition-all placeholder:text-rose-300" placeholder="Search events, clients or invoices..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-3">
+<button class="text-rose-400 hover:text-[#D14237] transition-all relative">
+<span class="material-symbols-outlined text-2xl" data-icon="notifications">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-[#D14237] rounded-full border-2 border-white"></span>
+</button>
+<button class="text-rose-400 hover:text-[#D14237] transition-all">
+<span class="material-symbols-outlined text-2xl" data-icon="apps">apps</span>
+</button>
+</div>
+<div class="h-8 w-[1px] bg-[#F5D8D5]/30"></div>
+<div class="flex items-center gap-3 cursor-pointer group">
+<div class="text-right">
+<p class="text-[11px] font-dm font-bold text-[#5C1F2E] leading-none">MARIANA SILVA</p>
+<p class="text-[9px] font-dm font-semibold text-rose-400 uppercase tracking-tighter">Gerente de Vendas</p>
+</div>
+<img alt="Executive User Profile" class="w-9 h-9 rounded-full object-cover border-2 border-white shadow-sm" data-alt="professional corporate headshot of a smiling executive woman with elegant style against a neutral office background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA24iJzNj-F5RQKAdrEdKNM75-fZIriZxwmhdivrC-xn4eLMCBdkdM5mhlZ-gcPFggsLw__yOcwR-W_pmxS5CW6xr93tYpL8YTPWTZzF-j5M-QpXeVrSB2VKi7j3v4RxxcwPlvDFLDAZX5tE0VevF49fsnxeRlpAhWFpBd_ubkkTGreIPUQKKeF9uO-mTYUIk4npe5RO1FBFFnBgr9J6mgL-h0dDnxoJC7KK8iEl9ETO-Wk8inecmWf0HDyjgV-8lpwZBbjSvuIqw"/>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="ml-[220px] pt-[60px] p-8 min-h-screen">
+<div class="max-w-7xl mx-auto">
+<!-- Hero Card Section -->
+<div class="mb-10">
+<div class="relative overflow-hidden bg-[#5C1F2E] rounded-2xl p-10 flex items-center justify-between shadow-2xl shadow-rose-950/20">
+<div class="relative z-10 flex flex-col gap-2">
+<h2 class="font-lora text-[32px] font-bold text-white tracking-tight">Novo Orçamento</h2>
+<p class="font-dm text-rose-200/80 max-w-lg text-sm leading-relaxed">
+                            Crie propostas personalizadas e encante seus clientes com o padrão de qualidade marília. Inicie agora um novo atendimento comercial.
+                        </p>
+<div class="mt-6 flex gap-4">
+<button class="bg-gradient-to-tr from-[#D14237] to-[#E8635A] hover:to-[#D14237] text-white px-8 py-3 rounded-xl font-dm font-bold text-sm flex items-center gap-2 shadow-xl shadow-[#D14237]/20 transition-all active:scale-95">
+<span class="material-symbols-outlined text-lg" data-icon="bolt" style="font-variation-settings: 'FILL' 1;">bolt</span>
+                                Criar Orçamento
+                            </button>
+<button class="bg-white/10 hover:bg-white/15 backdrop-blur-sm text-white px-8 py-3 rounded-xl font-dm font-bold text-sm border border-white/10 transition-all">
+                                Ver Catálogo
+                            </button>
+</div>
+</div>
+<!-- Decorative Element -->
+<div class="absolute -right-10 top-0 w-[400px] h-[400px] opacity-20 pointer-events-none">
+<img alt="Coffee Break Decor" class="w-full h-full object-cover mask-gradient" data-alt="close-up of professional espresso machine steaming milk in a high-end luxury cafe setting with warm lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDACKz-zF52B4Ast4tLFuKd3myMOADwwbP5GB1bahGZFkKZKrHidPMB8ZV04hOlztZ4stdw5Z8NiVLnneUGer7CXj34GRKR5CrOskTEuGPUgBJMzHghCEUIkSFyvYxhwGud2W3_UZpGJW_G9HlCDzV310JCL54NhTT_ddWhm87z8ssRZfV_XxGyrFaYWAolnAYXbofT1gw9pH7CmOvP_FCPe9tKjqrqZVrVwqFYCCIiBqHojkpdL90mdIxFpcEKJ5_SAEFzOgY1SA"/>
+</div>
+</div>
+</div>
+<!-- Metrics Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+<div class="bg-white p-8 rounded-2xl shadow-sm shadow-rose-900/5 group hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<span class="p-3 bg-surface-container rounded-xl">
+<span class="material-symbols-outlined text-[#D14237]" data-icon="analytics">analytics</span>
+</span>
+<span class="text-xs font-dm font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full">+12%</span>
+</div>
+<p class="text-xs font-dm font-bold text-rose-400 uppercase tracking-widest mb-1">Orçamentos este mês</p>
+<h3 class="font-lora text-4xl font-bold text-[#D14237]">148</h3>
+<div class="mt-4 h-1 w-full bg-rose-50 rounded-full overflow-hidden">
+<div class="h-full bg-[#D14237] w-3/4"></div>
+</div>
+</div>
+<div class="bg-white p-8 rounded-2xl shadow-sm shadow-rose-900/5 group hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<span class="p-3 bg-surface-container rounded-xl">
+<span class="material-symbols-outlined text-[#D14237]" data-icon="pending_actions">pending_actions</span>
+</span>
+<span class="text-xs font-dm font-bold text-rose-400 bg-rose-50 px-2 py-1 rounded-full">Alerta</span>
+</div>
+<p class="text-xs font-dm font-bold text-rose-400 uppercase tracking-widest mb-1">Aguardando aprovação</p>
+<h3 class="font-lora text-4xl font-bold text-[#D14237]">24</h3>
+<div class="mt-4 flex -space-x-2">
+<div class="w-6 h-6 rounded-full border-2 border-white bg-rose-200"></div>
+<div class="w-6 h-6 rounded-full border-2 border-white bg-rose-300"></div>
+<div class="w-6 h-6 rounded-full border-2 border-white bg-rose-400"></div>
+<div class="text-[10px] flex items-center pl-4 font-bold text-rose-400">+21 mais</div>
+</div>
+</div>
+<div class="bg-white p-8 rounded-2xl shadow-sm shadow-rose-900/5 group hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<span class="p-3 bg-surface-container rounded-xl">
+<span class="material-symbols-outlined text-[#D14237]" data-icon="verified_user">verified_user</span>
+</span>
+<span class="text-xs font-dm font-bold text-[#5C1F2E] bg-rose-50 px-2 py-1 rounded-full">Meta 80%</span>
+</div>
+<p class="text-xs font-dm font-bold text-rose-400 uppercase tracking-widest mb-1">Aprovados</p>
+<h3 class="font-lora text-4xl font-bold text-[#D14237]">82</h3>
+<p class="text-[11px] mt-4 font-dm font-medium text-rose-400">Total acumulado: R$ 142.500</p>
+</div>
+</div>
+<!-- Recent Activity List -->
+<section class="bg-white rounded-2xl shadow-sm shadow-rose-900/5 p-8">
+<div class="flex items-center justify-between mb-8">
+<h2 class="font-lora text-2xl font-bold text-[#5C1F2E]">Atividade Recente</h2>
+<button class="text-[#D14237] font-dm font-bold text-sm flex items-center gap-1 hover:gap-2 transition-all">
+                        Ver todo o histórico
+                        <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<div class="flex flex-col gap-4">
+<!-- Item 1 -->
+<div class="flex items-center justify-between p-4 rounded-xl border border-[#F5D8D5]/20 hover:bg-[#FAE8E6] transition-all cursor-pointer">
+<div class="flex items-center gap-4 flex-1">
+<div class="w-12 h-12 rounded-xl bg-[#5C1F2E] flex items-center justify-center text-white font-lora font-bold text-xl">AC</div>
+<div>
+<h4 class="text-sm font-bold text-[#5C1F2E] font-dm">Arturo Coimbra Advocacia</h4>
+<p class="text-xs text-rose-400 font-medium">Coffee Break Corporativo • 45 pessoas</p>
+</div>
+</div>
+<div class="flex flex-1 items-center gap-8 px-8">
+<div class="text-center min-w-[100px]">
+<p class="text-[10px] text-rose-300 uppercase font-bold tracking-tighter">Data do Evento</p>
+<p class="text-xs font-bold text-[#5C1F2E]">12 Out, 2024</p>
+</div>
+<div class="text-center min-w-[120px]">
+<p class="text-[10px] text-rose-300 uppercase font-bold tracking-tighter">Valor Proposto</p>
+<p class="text-xs font-bold text-[#D14237]">R$ 3.850,00</p>
+</div>
+<div class="min-w-[100px] flex justify-center">
+<span class="bg-rose-50 text-rose-900 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">Aguardando</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-rose-400 hover:text-[#D14237] hover:bg-white rounded-lg transition-all" title="Ver Detalhes">
+<span class="material-symbols-outlined text-xl" data-icon="visibility">visibility</span>
+</button>
+<button class="p-2 text-rose-400 hover:text-[#D14237] hover:bg-white rounded-lg transition-all" title="Baixar PDF">
+<span class="material-symbols-outlined text-xl" data-icon="picture_as_pdf">picture_as_pdf</span>
+</button>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="flex items-center justify-between p-4 rounded-xl border border-[#F5D8D5]/20 bg-[#FAE8E6]/40 hover:bg-[#FAE8E6] transition-all cursor-pointer">
+<div class="flex items-center gap-4 flex-1">
+<div class="w-12 h-12 rounded-xl bg-green-900 flex items-center justify-center text-white font-lora font-bold text-xl">GH</div>
+<div>
+<h4 class="text-sm font-bold text-[#5C1F2E] font-dm">Grand Hotel Marília</h4>
+<p class="text-xs text-rose-400 font-medium">Coquetel de Inauguração • 120 pessoas</p>
+</div>
+</div>
+<div class="flex flex-1 items-center gap-8 px-8">
+<div class="text-center min-w-[100px]">
+<p class="text-[10px] text-rose-300 uppercase font-bold tracking-tighter">Data do Evento</p>
+<p class="text-xs font-bold text-[#5C1F2E]">18 Out, 2024</p>
+</div>
+<div class="text-center min-w-[120px]">
+<p class="text-[10px] text-rose-300 uppercase font-bold tracking-tighter">Valor Proposto</p>
+<p class="text-xs font-bold text-[#D14237]">R$ 12.400,00</p>
+</div>
+<div class="min-w-[100px] flex justify-center">
+<span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">Aprovado</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-rose-400 hover:text-[#D14237] hover:bg-white rounded-lg transition-all" title="Ver Detalhes">
+<span class="material-symbols-outlined text-xl" data-icon="visibility">visibility</span>
+</button>
+<button class="p-2 text-rose-400 hover:text-[#D14237] hover:bg-white rounded-lg transition-all" title="Baixar PDF">
+<span class="material-symbols-outlined text-xl" data-icon="picture_as_pdf">picture_as_pdf</span>
+</button>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="flex items-center justify-between p-4 rounded-xl border border-[#F5D8D5]/20 hover:bg-[#FAE8E6] transition-all cursor-pointer">
+<div class="flex items-center gap-4 flex-1">
+<div class="w-12 h-12 rounded-xl bg-[#904857] flex items-center justify-center text-white font-lora font-bold text-xl">BF</div>
+<div>
+<h4 class="text-sm font-bold text-[#5C1F2E] font-dm">Banco do Futuro</h4>
+<p class="text-xs text-rose-400 font-medium">Reunião de Diretoria • 12 pessoas</p>
+</div>
+</div>
+<div class="flex flex-1 items-center gap-8 px-8">
+<div class="text-center min-w-[100px]">
+<p class="text-[10px] text-rose-300 uppercase font-bold tracking-tighter">Data do Evento</p>
+<p class="text-xs font-bold text-[#5C1F2E]">20 Out, 2024</p>
+</div>
+<div class="text-center min-w-[120px]">
+<p class="text-[10px] text-rose-300 uppercase font-bold tracking-tighter">Valor Proposto</p>
+<p class="text-xs font-bold text-[#D14237]">R$ 1.200,00</p>
+</div>
+<div class="min-w-[100px] flex justify-center">
+<span class="bg-rose-50 text-rose-900 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">Aguardando</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-rose-400 hover:text-[#D14237] hover:bg-white rounded-lg transition-all" title="Ver Detalhes">
+<span class="material-symbols-outlined text-xl" data-icon="visibility">visibility</span>
+</button>
+<button class="p-2 text-rose-400 hover:text-[#D14237] hover:bg-white rounded-lg transition-all" title="Baixar PDF">
+<span class="material-symbols-outlined text-xl" data-icon="picture_as_pdf">picture_as_pdf</span>
+</button>
+</div>
+</div>
+<!-- Item 4 -->
+<div class="flex items-center justify-between p-4 rounded-xl border border-[#F5D8D5]/20 bg-[#FAE8E6]/40 hover:bg-[#FAE8E6] transition-all cursor-pointer">
+<div class="flex items-center gap-4 flex-1">
+<div class="w-12 h-12 rounded-xl bg-stone-800 flex items-center justify-center text-white font-lora font-bold text-xl">TE</div>
+<div>
+<h4 class="text-sm font-bold text-[#5C1F2E] font-dm">Tech Evolution</h4>
+<p class="text-xs text-rose-400 font-medium">Hackathon Coffee • 80 pessoas</p>
+</div>
+</div>
+<div class="flex flex-1 items-center gap-8 px-8">
+<div class="text-center min-w-[100px]">
+<p class="text-[10px] text-rose-300 uppercase font-bold tracking-tighter">Data do Evento</p>
+<p class="text-xs font-bold text-[#5C1F2E]">25 Out, 2024</p>
+</div>
+<div class="text-center min-w-[120px]">
+<p class="text-[10px] text-rose-300 uppercase font-bold tracking-tighter">Valor Proposto</p>
+<p class="text-xs font-bold text-[#D14237]">R$ 6.900,00</p>
+</div>
+<div class="min-w-[100px] flex justify-center">
+<span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">Aprovado</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-rose-400 hover:text-[#D14237] hover:bg-white rounded-lg transition-all" title="Ver Detalhes">
+<span class="material-symbols-outlined text-xl" data-icon="visibility">visibility</span>
+</button>
+<button class="p-2 text-rose-400 hover:text-[#D14237] hover:bg-white rounded-lg transition-all" title="Baixar PDF">
+<span class="material-symbols-outlined text-xl" data-icon="picture_as_pdf">picture_as_pdf</span>
+</button>
+</div>
+</div>
+<!-- Item 5 -->
+<div class="flex items-center justify-between p-4 rounded-xl border border-[#F5D8D5]/20 hover:bg-[#FAE8E6] transition-all cursor-pointer">
+<div class="flex items-center gap-4 flex-1">
+<div class="w-12 h-12 rounded-xl bg-orange-900 flex items-center justify-center text-white font-lora font-bold text-xl">SF</div>
+<div>
+<h4 class="text-sm font-bold text-[#5C1F2E] font-dm">Solaris Fitness</h4>
+<p class="text-xs text-rose-400 font-medium">Coffee Fit de Aniversário • 30 pessoas</p>
+</div>
+</div>
+<div class="flex flex-1 items-center gap-8 px-8">
+<div class="text-center min-w-[100px]">
+<p class="text-[10px] text-rose-300 uppercase font-bold tracking-tighter">Data do Evento</p>
+<p class="text-xs font-bold text-[#5C1F2E]">30 Out, 2024</p>
+</div>
+<div class="text-center min-w-[120px]">
+<p class="text-[10px] text-rose-300 uppercase font-bold tracking-tighter">Valor Proposto</p>
+<p class="text-xs font-bold text-[#D14237]">R$ 2.450,00</p>
+</div>
+<div class="min-w-[100px] flex justify-center">
+<span class="bg-rose-50 text-rose-900 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">Aguardando</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-rose-400 hover:text-[#D14237] hover:bg-white rounded-lg transition-all" title="Ver Detalhes">
+<span class="material-symbols-outlined text-xl" data-icon="visibility">visibility</span>
+</button>
+<button class="p-2 text-rose-400 hover:text-[#D14237] hover:bg-white rounded-lg transition-all" title="Baixar PDF">
+<span class="material-symbols-outlined text-xl" data-icon="picture_as_pdf">picture_as_pdf</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+</body></html>
