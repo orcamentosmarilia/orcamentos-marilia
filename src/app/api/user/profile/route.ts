@@ -23,7 +23,15 @@ export async function GET(request: Request) {
     .single();
 
   if (error || !data) return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 404 });
-  return NextResponse.json({ user: data });
+
+  // Busca permissões do cargo via service_role (bypassa RLS)
+  const { data: roleData } = await supabase
+    .from('role_settings')
+    .select('permissions')
+    .eq('role', data.role)
+    .single();
+
+  return NextResponse.json({ user: data, permissions: roleData?.permissions || {} });
 }
 
 // POST /api/user/profile — atualiza perfil, email ou senha

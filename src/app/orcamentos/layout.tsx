@@ -69,7 +69,7 @@ export default function OrcamentosLayout({ children }: { children: React.ReactNo
       // Usa rota server-side para não expor admin_users via anon key
       const res = await fetch(`/api/user/profile?email=${encodeURIComponent(email)}`);
       if (!res.ok) throw new Error('Usuário não encontrado');
-      const { user: realUser } = await res.json();
+      const { user: realUser, permissions: realPermissions } = await res.json();
 
       const impStr = localStorage.getItem("marilia_impersonated_user");
       let activeUser = realUser;
@@ -80,11 +80,18 @@ export default function OrcamentosLayout({ children }: { children: React.ReactNo
         setImpersonatedUser(impUserObj);
       }
 
-      const { data: roleData } = await supabase
-        .from("role_settings").select("permissions").eq("role", activeUser.role).single();
-      const activePermissions = roleData?.permissions || {};
+      // Permissões já vêm da API (service_role, sem problema de RLS)
+      let activePermissions = realPermissions || {};
+      if (impUserObj) {
+        // Se impersonando, busca permissões do cargo impersonado
+        const impRes = await fetch(`/api/user/profile?email=${encodeURIComponent(impUserObj.email)}`);
+        if (impRes.ok) {
+          const { permissions: impPerms } = await impRes.json();
+          activePermissions = impPerms || {};
+        }
+      }
 
-      setUser({ ...realUser, permissions: realUser.role === activeUser.role ? activePermissions : {} });
+      setUser({ ...realUser, permissions: realUser.role === activeUser.role ? activePermissions : realPermissions || {} });
       if (impUserObj) setImpersonatedUser({ ...impUserObj, permissions: activePermissions });
 
       const checkAccess = (path: string) => {
@@ -148,8 +155,12 @@ export default function OrcamentosLayout({ children }: { children: React.ReactNo
       const { error: uploadError } = await supabase.storage.from("profile-images").upload(filePath, file);
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from("profile-images").getPublicUrl(filePath);
-      const { error: updateError } = await supabase.from("admin_users").update({ photo_url: publicUrl }).eq("id", user.id);
-      if (updateError) throw updateError;
+      const updRes = await fetch('/api/user/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_profile', userId: user.id, updates: { photo_url: publicUrl } }),
+      });
+      if (!updRes.ok) throw new Error('Erro ao salvar foto');
       setUser({ ...user, photo_url: publicUrl });
     } catch (err: any) {
       alert("Erro no upload: " + err.message);
