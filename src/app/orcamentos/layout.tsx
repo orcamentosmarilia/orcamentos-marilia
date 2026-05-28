@@ -462,10 +462,12 @@ export default function OrcamentosLayout({ children }: { children: React.ReactNo
               <span className="text-[13px] tracking-wide">Lista Geral</span>
             </Link>
           )}
-          <Link href="/orcamentos/clientes" className={`flex items-center gap-3 px-6 py-3 transition-all duration-200 ${pathname.includes("clientes") ? "bg-[#D14237]/15 border-l-4 border-[#D14237] text-white font-medium" : "border-l-4 border-transparent text-rose-200/60 hover:text-white hover:bg-white/5"}`}>
-            <span className="material-symbols-outlined text-xl">contacts</span>
-            <span className="text-[13px] tracking-wide">Clientes</span>
-          </Link>
+          {currentUser?.permissions?.clients_manage && (
+            <Link href="/orcamentos/clientes" className={`flex items-center gap-3 px-6 py-3 transition-all duration-200 ${pathname.includes("clientes") ? "bg-[#D14237]/15 border-l-4 border-[#D14237] text-white font-medium" : "border-l-4 border-transparent text-rose-200/60 hover:text-white hover:bg-white/5"}`}>
+              <span className="material-symbols-outlined text-xl">contacts</span>
+              <span className="text-[13px] tracking-wide">Clientes</span>
+            </Link>
+          )}
           {currentUser?.permissions?.catalog_manage && (
             <Link href="/orcamentos/catalogo" className={`flex items-center gap-3 px-6 py-3 transition-all duration-200 ${pathname.includes("catalogo") ? "bg-[#D14237]/15 border-l-4 border-[#D14237] text-white font-medium" : "border-l-4 border-transparent text-rose-200/60 hover:text-white hover:bg-white/5"}`}>
               <span className="material-symbols-outlined text-xl">restaurant_menu</span>
@@ -478,10 +480,16 @@ export default function OrcamentosLayout({ children }: { children: React.ReactNo
               <span className="text-[13px] tracking-wide">Logística</span>
             </Link>
           )}
-          {currentUser?.permissions?.pipeline_view && (
+          {currentUser?.permissions?.loss_reasons && (
             <Link href="/orcamentos/admin/motivos-perda" className={`flex items-center gap-3 px-6 py-3 transition-all duration-200 ${pathname.includes("motivos-perda") ? "bg-[#D14237]/15 border-l-4 border-[#D14237] text-white font-medium" : "border-l-4 border-transparent text-rose-200/60 hover:text-white hover:bg-white/5"}`}>
               <span className="material-symbols-outlined text-xl">sentiment_dissatisfied</span>
               <span className="text-[13px] tracking-wide">Motivos de Perda</span>
+            </Link>
+          )}
+          {currentUser?.permissions?.agent_use && (
+            <Link href="/orcamentos/agente" className={`flex items-center gap-3 px-6 py-3 transition-all duration-200 ${pathname.includes("agente") ? "bg-[#D14237]/15 border-l-4 border-[#D14237] text-white font-medium" : "border-l-4 border-transparent text-rose-200/60 hover:text-white hover:bg-white/5"}`}>
+              <span className="material-symbols-outlined text-xl">smart_toy</span>
+              <span className="text-[13px] tracking-wide">Agente IA</span>
             </Link>
           )}
           {currentUser?.permissions?.logs_view && (
@@ -496,13 +504,13 @@ export default function OrcamentosLayout({ children }: { children: React.ReactNo
               <span className="text-[13px] tracking-wide">Gerenciar Usuários</span>
             </Link>
           )}
-          {currentUser?.permissions?.users_manage && (
+          {currentUser?.permissions?.reviews_view && (
             <Link href="/orcamentos/admin/revisoes" className={`flex items-center gap-3 px-6 py-3 transition-all duration-200 ${pathname.includes("/revisoes") ? "bg-[#D14237]/15 border-l-4 border-[#D14237] text-white font-medium" : "border-l-4 border-transparent text-rose-200/60 hover:text-white hover:bg-white/5"}`}>
               <span className="material-symbols-outlined text-xl">rate_review</span>
               <span className="text-[13px] tracking-wide">Revisões IA</span>
             </Link>
           )}
-          {currentUser?.permissions?.users_manage && (
+          {currentUser?.permissions?.settings_manage && (
             <Link href="/orcamentos/settings" className={`flex items-center gap-3 px-6 py-3 transition-all duration-200 ${pathname.includes("/settings") ? "bg-[#D14237]/15 border-l-4 border-[#D14237] text-white font-medium" : "border-l-4 border-transparent text-rose-200/60 hover:text-white hover:bg-white/5"}`}>
               <span className="material-symbols-outlined text-xl">settings</span>
               <span className="text-[13px] tracking-wide">Configurações</span>

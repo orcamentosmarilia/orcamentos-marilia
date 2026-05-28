@@ -26,15 +26,20 @@ interface RoleSetting {
 }
 
 const PERMISSIONS = [
-  { id: "dashboard_view",  label: "Ver Dashboard",              icon: "dashboard" },
-  { id: "pipeline_view",   label: "Ver Kanban / Pipeline",      icon: "view_kanban" },
-  { id: "quotes_view_all", label: "Ver Todos os Orçamentos",    icon: "list_alt" },
-  { id: "quotes_create",   label: "Criar Novos Orçamentos",     icon: "add_circle" },
-  { id: "quotes_delete",   label: "Excluir Orçamentos",         icon: "delete_forever" },
-  { id: "catalog_manage",  label: "Gerenciar Catálogo",         icon: "restaurant_menu" },
-  { id: "logs_view",       label: "Ver Histórico / Logs",       icon: "history" },
-  { id: "users_manage",    label: "Gerenciar Equipe",           icon: "group" },
-  { id: "logistics_view",  label: "Acessar Logística",         icon: "local_shipping" },
+  { id: "dashboard_view",   label: "Ver Dashboard",              icon: "dashboard" },
+  { id: "pipeline_view",    label: "Ver Kanban / Pipeline",      icon: "view_kanban" },
+  { id: "quotes_view_all",  label: "Ver Todos os Orçamentos",    icon: "list_alt" },
+  { id: "quotes_create",    label: "Criar Novos Orçamentos",     icon: "add_circle" },
+  { id: "quotes_delete",    label: "Excluir Orçamentos",         icon: "delete_forever" },
+  { id: "clients_manage",   label: "Gerenciar Clientes",         icon: "contacts" },
+  { id: "catalog_manage",   label: "Gerenciar Catálogo",         icon: "restaurant_menu" },
+  { id: "logistics_view",   label: "Acessar Logística",          icon: "local_shipping" },
+  { id: "loss_reasons",     label: "Motivos de Perda",           icon: "sentiment_dissatisfied" },
+  { id: "agent_use",        label: "Usar Agente IA",             icon: "smart_toy" },
+  { id: "logs_view",        label: "Ver Histórico / Logs",       icon: "history" },
+  { id: "reviews_view",     label: "Ver Revisões IA",            icon: "rate_review" },
+  { id: "users_manage",     label: "Gerenciar Equipe",           icon: "group" },
+  { id: "settings_manage",  label: "Acessar Configurações",      icon: "settings" },
 ];
 
 const EMPTY_FORM = { name: "", email: "", password: "", role: "", whatsapp: "", photo_url: "" };
