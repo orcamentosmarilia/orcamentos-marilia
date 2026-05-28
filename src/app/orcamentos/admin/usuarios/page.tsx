@@ -61,6 +61,9 @@ export default function UserManagementPage() {
   const [activeRoleTab, setActiveRoleTab] = useState<string>("");
   const [isEditingRoleName, setIsEditingRoleName] = useState(false);
   const [tempRoleName, setTempRoleName] = useState("");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState({ name: "", email: "", password: "", role: "", whatsapp: "" });
+  const [createError, setCreateError] = useState("");
 
   useEffect(() => {
     fetchData();
@@ -70,14 +73,11 @@ export default function UserManagementPage() {
     try {
       setLoading(true);
       const [usersRes, rolesRes] = await Promise.all([
-        supabase.from("admin_users").select("*").order("name"),
+        fetch('/api/admin/users').then(r => r.json()),
         supabase.from("role_settings").select("*")
       ]);
 
-      if (usersRes.error) throw usersRes.error;
-      if (rolesRes.error) throw rolesRes.error;
-
-      setUsers(usersRes.data || []);
+      setUsers(usersRes.users || []);
       const roles = rolesRes.data || [];
       setRoleSettings(roles);
       if (roles.length > 0 && !activeRoleTab) {
@@ -91,20 +91,61 @@ export default function UserManagementPage() {
     }
   }
 
+  const handleCreateUser = async () => {
+    setCreateError("");
+    if (!createForm.email || !createForm.password || !createForm.role) {
+      setCreateError("E-mail, senha e cargo são obrigatórios.");
+      return;
+    }
+    try {
+      setSaving("create");
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', ...createForm }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setCreateError(data.error || "Erro ao criar usuário."); return; }
+      setUsers(prev => [...prev, data.user].sort((a, b) => a.name?.localeCompare(b.name)));
+      setShowCreateModal(false);
+      setCreateForm({ name: "", email: "", password: "", role: "", whatsapp: "" });
+    } catch (err: any) {
+      setCreateError("Erro ao criar usuário.");
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (!confirm(`Tem certeza que deseja remover "${userName}" do sistema? Esta ação não pode ser desfeita.`)) return;
+    try {
+      setSaving("delete-" + userId);
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', userId }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      setUsers(prev => prev.filter(u => u.id !== userId));
+      if (selectedUser?.id === userId) setSelectedUser(null);
+    } catch (err: any) {
+      alert("Erro ao remover usuário: " + err.message);
+    } finally {
+      setSaving(null);
+    }
+  };
+
   const handleUpdateUserRole = async (userId: string, newRole: string) => {
     try {
       setSaving(userId);
-      const { error } = await supabase
-        .from("admin_users")
-        .update({ role: newRole })
-        .eq("id", userId);
-
-      if (error) throw error;
-      
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_role', userId, role: newRole }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
-      if (selectedUser?.id === userId) {
-        setSelectedUser({ ...selectedUser, role: newRole });
-      }
+      if (selectedUser?.id === userId) setSelectedUser({ ...selectedUser, role: newRole });
     } catch (err: any) {
       alert("Erro ao atualizar cargo: " + err.message);
     } finally {
@@ -272,9 +313,19 @@ export default function UserManagementPage() {
         title="Equipe Marília"
         description="Gerencie permissões, cargos e funções de todos os colaboradores."
         actions={
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-300" size={18} />
-            <input type="text" placeholder="Buscar por nome, e-mail ou cargo..." className="pl-11 pr-5 py-2.5 bg-white border border-brand-pink2 rounded-xl text-sm focus:outline-none focus:border-[#D14237] w-72 font-dm shadow-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          <div className="flex items-center gap-3">
+            <div className="relative hidden sm:block">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-300" size={18} />
+              <input type="text" placeholder="Buscar..." className="pl-11 pr-5 py-2.5 bg-white border border-brand-pink2 rounded-xl text-sm focus:outline-none focus:border-[#D14237] w-56 font-dm shadow-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            </div>
+            <button
+              onClick={() => { setCreateForm({ name: "", email: "", password: "", role: roleSettings[0]?.role || "", whatsapp: "" }); setCreateError(""); setShowCreateModal(true); }}
+              className="flex items-center gap-2 bg-[#5C1F2E] hover:bg-[#4A1925] text-white px-4 py-2.5 rounded-xl text-sm font-dm font-bold transition-all shadow-lg shadow-[#5C1F2E]/20"
+            >
+              <Plus size={16} />
+              <span className="hidden sm:inline">Novo Usuário</span>
+              <span className="sm:hidden">Novo</span>
+            </button>
           </div>
         }
       />
@@ -321,14 +372,22 @@ export default function UserManagementPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-6">
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tighter ${
+                  <div className="flex items-center gap-3">
+                    <span className={`hidden sm:inline px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tighter ${
                       user.role === 'Administrador' ? 'bg-red-50 text-red-600 border border-red-100' :
                       user.role === 'Gerente' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
                       'bg-rose-50 text-rose-500 border border-rose-100'
                     }`}>
                       {user.role}
                     </span>
+                    <button
+                      onClick={e => { e.stopPropagation(); handleDeleteUser(user.id, user.name || user.email); }}
+                      disabled={saving === "delete-" + user.id}
+                      className="p-1.5 text-rose-200 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                      title="Remover usuário"
+                    >
+                      {saving === "delete-" + user.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                    </button>
                     <ChevronRight className={`text-rose-200 transition-transform ${selectedUser?.id === user.id ? 'rotate-90 text-[#D14237]' : 'group-hover:translate-x-1'}`} size={18} />
                   </div>
                 </div>
@@ -505,6 +564,67 @@ export default function UserManagementPage() {
         </div>
 
       </div>
+
+      {/* ══ MODAL CRIAR USUÁRIO ══ */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-[#5C1F2E]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-7 py-5 border-b border-rose-50">
+              <h2 className="font-lora text-xl font-bold text-[#5C1F2E]">Novo Usuário</h2>
+              <button onClick={() => setShowCreateModal(false)} className="text-rose-300 hover:text-[#D14237]">
+                <span className="material-symbols-outlined text-xl">close</span>
+              </button>
+            </div>
+            <div className="p-7 space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nome Completo</label>
+                <input type="text" value={createForm.name} onChange={e => setCreateForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="Ex: Ana Silva"
+                  className="w-full border border-rose-100 rounded-xl px-4 py-2.5 text-sm font-dm text-[#5C1F2E] focus:outline-none focus:border-[#5C1F2E] placeholder:text-rose-200" />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">E-mail <span className="text-red-400">*</span></label>
+                <input type="email" value={createForm.email} onChange={e => setCreateForm(f => ({ ...f, email: e.target.value }))}
+                  placeholder="colaborador@email.com"
+                  className="w-full border border-rose-100 rounded-xl px-4 py-2.5 text-sm font-dm text-[#5C1F2E] focus:outline-none focus:border-[#5C1F2E] placeholder:text-rose-200" />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Senha Inicial <span className="text-red-400">*</span></label>
+                <input type="text" value={createForm.password} onChange={e => setCreateForm(f => ({ ...f, password: e.target.value }))}
+                  placeholder="Senha que o colaborador usará para entrar"
+                  className="w-full border border-rose-100 rounded-xl px-4 py-2.5 text-sm font-dm text-[#5C1F2E] focus:outline-none focus:border-[#5C1F2E] placeholder:text-rose-200" />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">WhatsApp</label>
+                <input type="text" value={createForm.whatsapp} onChange={e => setCreateForm(f => ({ ...f, whatsapp: e.target.value }))}
+                  placeholder="(00) 00000-0000"
+                  className="w-full border border-rose-100 rounded-xl px-4 py-2.5 text-sm font-dm text-[#5C1F2E] focus:outline-none focus:border-[#5C1F2E] placeholder:text-rose-200" />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Cargo <span className="text-red-400">*</span></label>
+                <select value={createForm.role} onChange={e => setCreateForm(f => ({ ...f, role: e.target.value }))}
+                  className="w-full border border-rose-100 rounded-xl px-4 py-2.5 text-sm font-dm text-[#5C1F2E] focus:outline-none focus:border-[#5C1F2E] bg-white">
+                  <option value="">Selecione um cargo...</option>
+                  {roleSettings.map(r => <option key={r.role} value={r.role}>{r.role}</option>)}
+                </select>
+              </div>
+              {createError && (
+                <p className="text-red-500 text-xs font-dm flex items-center gap-1.5">
+                  <AlertCircle size={12} /> {createError}
+                </p>
+              )}
+              <button
+                onClick={handleCreateUser}
+                disabled={saving === "create"}
+                className="w-full bg-[#5C1F2E] hover:bg-[#4A1925] disabled:opacity-50 text-white py-3 rounded-xl font-dm font-bold text-sm flex items-center justify-center gap-2 transition-all mt-2"
+              >
+                {saving === "create" ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                Criar Usuário
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
