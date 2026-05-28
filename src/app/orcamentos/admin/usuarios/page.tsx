@@ -72,12 +72,16 @@ export default function UserManagementPage() {
   async function fetchData() {
     try {
       setLoading(true);
-      const [usersRes, rolesRes] = await Promise.all([
-        fetch('/api/admin/users').then(r => r.json()),
+      const [usersJson, rolesRes] = await Promise.all([
+        fetch('/api/admin/users').then(async r => {
+          const j = await r.json();
+          console.log('[usuarios] API response:', j);
+          return j;
+        }),
         supabase.from("role_settings").select("*")
       ]);
 
-      setUsers(usersRes.users || []);
+      setUsers(usersJson.users || []);
       const roles = rolesRes.data || [];
       setRoleSettings(roles);
       if (roles.length > 0 && !activeRoleTab) {
@@ -85,7 +89,7 @@ export default function UserManagementPage() {
         setTempRoleName(roles[0].role);
       }
     } catch (err) {
-      console.error("Erro ao buscar dados:", err);
+      console.error('[usuarios] Erro ao buscar dados:', err);
     } finally {
       setLoading(false);
     }
