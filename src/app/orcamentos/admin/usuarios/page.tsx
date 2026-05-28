@@ -28,7 +28,7 @@ interface UserProfile {
   role: string;
   photo_url: string;
   profile_completed: boolean;
-  created_at: string;
+  created_at?: string;
 }
 
 interface RoleSetting {

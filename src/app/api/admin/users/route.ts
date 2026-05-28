@@ -14,7 +14,7 @@ export async function GET() {
   const supabase = adminClient();
   const { data, error } = await supabase
     .from('admin_users')
-    .select('id, name, email, role, whatsapp, photo_url, profile_completed, created_at')
+    .select('id, name, email, role, whatsapp, photo_url, profile_completed')
     .order('name');
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
