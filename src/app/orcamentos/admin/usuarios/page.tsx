@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import {
   Users, UserCog, ShieldCheck, Mail, Phone, Save,
   Loader2, Search, ChevronRight, Info, AlertCircle,
-  Plus, Trash2, Eye, X, Camera
+  Plus, Trash2, Eye, X, Camera, Pencil, Check
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 
@@ -342,23 +342,32 @@ export default function UsuariosPage() {
             {currentRole && (
               <div className="flex items-center gap-2 mb-4 pb-3 border-b border-rose-50">
                 {editingRoleName ? (
-                  <input
-                    autoFocus
-                    value={roleNameDraft}
-                    onChange={e => setRoleNameDraft(e.target.value)}
-                    onBlur={() => renameRole(activeRole, roleNameDraft)}
-                    onKeyDown={e => { if (e.key === "Enter") renameRole(activeRole, roleNameDraft); if (e.key === "Escape") setEditingRoleName(false); }}
-                    className="flex-1 text-[11px] font-bold uppercase tracking-widest text-[#5C1F2E] border border-[#D14237]/30 rounded-lg px-3 py-1.5 focus:outline-none bg-[#FDF6F2]"
-                  />
+                  <>
+                    <input
+                      autoFocus
+                      value={roleNameDraft}
+                      onChange={e => setRoleNameDraft(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter") renameRole(activeRole, roleNameDraft); if (e.key === "Escape") setEditingRoleName(false); }}
+                      className="flex-1 text-xs font-bold text-[#5C1F2E] border border-[#D14237]/40 rounded-lg px-3 py-1.5 focus:outline-none bg-[#FDF6F2]"
+                    />
+                    <button onClick={() => renameRole(activeRole, roleNameDraft)} className="p-1.5 bg-[#5C1F2E] text-white rounded-lg hover:bg-[#4A1925] transition-all">
+                      <Check size={13} />
+                    </button>
+                    <button onClick={() => setEditingRoleName(false)} className="p-1.5 text-rose-300 hover:text-rose-500 rounded-lg transition-all">
+                      <X size={13} />
+                    </button>
+                  </>
                 ) : (
-                  <button
-                    onClick={() => { setRoleNameDraft(activeRole); setEditingRoleName(true); }}
-                    className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-[#5C1F2E] hover:text-[#D14237] transition-colors group"
-                    title="Clique para renomear"
-                  >
-                    {activeRole}
-                    <span className="material-symbols-outlined text-[14px] text-rose-200 group-hover:text-[#D14237]">edit</span>
-                  </button>
+                  <>
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-[#5C1F2E]">{activeRole}</span>
+                    <button
+                      onClick={() => { setRoleNameDraft(activeRole); setEditingRoleName(true); }}
+                      className="p-1 text-rose-300 hover:text-[#D14237] rounded transition-colors"
+                      title="Renomear cargo"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={() => { if (confirm(`Deletar cargo "${activeRole}"?`)) deleteRole(activeRole); }}
