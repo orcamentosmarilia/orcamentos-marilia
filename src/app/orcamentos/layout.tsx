@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { Camera, Save, Loader2, Eye, EyeOff, X, ImagePlus, KeyRound, Mail } from "lucide-react";
+import { Camera, Save, Loader2, Eye, EyeOff, X, ImagePlus, KeyRound, Mail, Menu } from "lucide-react";
 
 interface UserProfile {
   id: string;
@@ -30,6 +30,7 @@ export default function OrcamentosLayout({ children }: { children: React.ReactNo
   const [impersonatedUser, setImpersonatedUser] = useState<UserProfile | null>(null);
 
   /* ── Profile modal ── */
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [profileTab, setProfileTab] = useState<ProfileTab>("foto");
   const [profileSaving, setProfileSaving] = useState(false);
@@ -60,6 +61,7 @@ export default function OrcamentosLayout({ children }: { children: React.ReactNo
       const session = JSON.parse(sessionStr);
       fetchUserProfile(session.email);
     }
+    setMobileMenuOpen(false);
     const impStr = localStorage.getItem("marilia_impersonated_user");
     if (impStr) setImpersonatedUser(JSON.parse(impStr));
   }, [pathname, router]);
@@ -412,10 +414,33 @@ export default function OrcamentosLayout({ children }: { children: React.ReactNo
         </div>
       )}
 
+      {/* ══ MOBILE HEADER ══ */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-[#5C1F2E] flex items-center justify-between px-4 shadow-lg">
+        <button onClick={() => setMobileMenuOpen(true)} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
+          <Menu size={22} className="text-white" />
+        </button>
+        <img src="/logo.png" alt="Marília de Dirceu" className="h-8 w-auto object-contain" />
+        <button onClick={() => openProfileModal("foto")} className="p-1">
+          <div className="w-8 h-8 rounded-full overflow-hidden bg-rose-900/40 flex items-center justify-center border border-white/20">
+            {currentUser?.photo_url
+              ? <img src={currentUser.photo_url} alt="avatar" className="w-full h-full object-cover" />
+              : <span className="material-symbols-outlined text-rose-300 text-[18px]">person</span>}
+          </div>
+        </button>
+      </div>
+
+      {/* ══ MOBILE OVERLAY ══ */}
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 bg-black/60 z-40 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
+      )}
+
       {/* ══ SIDEBAR ══ */}
-      <aside className="fixed left-0 top-0 h-screen w-[220px] z-50 bg-[#5C1F2E] flex flex-col py-8 px-0 shadow-2xl">
-        <div className="px-6 mb-10">
+      <aside className={`fixed left-0 top-0 h-screen w-[220px] z-50 bg-[#5C1F2E] flex flex-col py-8 px-0 shadow-2xl transition-transform duration-300 ease-in-out ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+        <div className="px-6 mb-10 flex items-center justify-between">
           <img src="/logo.png" alt="Marília de Dirceu" className="h-14 w-auto object-contain" />
+          <button onClick={() => setMobileMenuOpen(false)} className="md:hidden p-1 rounded-lg hover:bg-white/10 transition-colors">
+            <X size={18} className="text-rose-300" />
+          </button>
         </div>
 
         <nav className="flex-1 flex flex-col gap-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
@@ -577,7 +602,7 @@ export default function OrcamentosLayout({ children }: { children: React.ReactNo
       )}
 
       {/* ── Main Content ── */}
-      <main className={`ml-[220px] p-8 w-full ${impersonatedUser ? "pt-14" : "pt-8"}`}>
+      <main className={`md:ml-[220px] p-4 md:p-8 w-full pt-[72px] md:pt-8 ${impersonatedUser ? "md:pt-14" : ""}`}>
         {children}
       </main>
     </div>

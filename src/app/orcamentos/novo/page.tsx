@@ -302,7 +302,7 @@ export default function NovoOrcamento() {
 
   return (
     <div className="min-h-screen bg-[var(--color-brand-cream)] flex justify-center pb-20">
-      <div className="w-full max-w-[1200px] px-6 pt-10 flex flex-col gap-8">
+      <div className="w-full max-w-[1200px] px-4 md:px-6 pt-4 md:pt-10 flex flex-col gap-6 md:gap-8">
         
         <header className="flex items-center gap-4">
           <Link href="/" className="text-[var(--color-brand-wine)] bg-[var(--color-brand-pink)] p-2.5 rounded-full hover:bg-[var(--color-brand-pink2)] transition-colors">

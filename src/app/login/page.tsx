@@ -73,7 +73,7 @@ export default function LoginPage() {
 
       {/* Login Container */}
       <main className="relative z-10 w-full max-w-[400px] mx-4">
-        <div className="bg-surface-container-lowest rounded-brand-card p-[48px] shadow-2xl shadow-black/20 flex flex-col items-center">
+        <div className="bg-surface-container-lowest rounded-brand-card p-6 md:p-[48px] shadow-2xl shadow-black/20 flex flex-col items-center">
           
           {/* Logo Header */}
           <header className="flex flex-col items-center mb-10">
