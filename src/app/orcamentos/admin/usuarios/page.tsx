@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import {
   Users, UserCog, ShieldCheck, Mail, Phone, Save,
   Loader2, Search, ChevronRight, Info, AlertCircle,
-  Plus, Trash2, Eye, X
+  Plus, Trash2, Eye, X, Camera
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 
@@ -37,7 +37,7 @@ const PERMISSIONS = [
   { id: "logistics_view",  label: "Acessar Logística",         icon: "local_shipping" },
 ];
 
-const EMPTY_FORM = { name: "", email: "", password: "", role: "", whatsapp: "" };
+const EMPTY_FORM = { name: "", email: "", password: "", role: "", whatsapp: "", photo_url: "" };
 
 export default function UsuariosPage() {
   const [users, setUsers]               = useState<AdminUser[]>([]);
@@ -50,6 +50,8 @@ export default function UsuariosPage() {
   const [showCreate, setShowCreate]     = useState(false);
   const [form, setForm]                 = useState(EMPTY_FORM);
   const [formError, setFormError]       = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef                   = useRef<HTMLInputElement>(null);
 
   useEffect(() => { loadAll(); }, []);
 
@@ -68,6 +70,24 @@ export default function UsuariosPage() {
       console.error("loadAll error:", e);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `avatars/new-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("profile-images").upload(path, file, { upsert: true });
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from("profile-images").getPublicUrl(path);
+      setForm(f => ({ ...f, photo_url: publicUrl }));
+    } catch (err: any) {
+      setFormError("Erro ao enviar foto: " + err.message);
+    } finally {
+      setUploadingPhoto(false);
     }
   }
 
@@ -316,6 +336,32 @@ export default function UsuariosPage() {
               <button onClick={() => setShowCreate(false)}><X size={18} className="text-rose-300 hover:text-[#D14237]" /></button>
             </div>
             <div className="p-7 space-y-4">
+              {/* Foto opcional */}
+              <div className="flex flex-col items-center gap-2 pb-2">
+                <div
+                  onClick={() => photoInputRef.current?.click()}
+                  className="w-20 h-20 rounded-full border-2 border-dashed border-rose-200 hover:border-[#5C1F2E] flex items-center justify-center cursor-pointer transition-all overflow-hidden relative group"
+                >
+                  {uploadingPhoto ? (
+                    <Loader2 size={22} className="animate-spin text-rose-300" />
+                  ) : form.photo_url ? (
+                    <>
+                      <img src={form.photo_url} className="w-full h-full object-cover" alt="foto" />
+                      <div className="absolute inset-0 bg-[#5C1F2E]/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <Camera size={18} className="text-white" />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center gap-1 text-rose-300">
+                      <Camera size={22} />
+                      <span className="text-[9px] font-dm text-center leading-tight">Adicionar<br/>foto</span>
+                    </div>
+                  )}
+                </div>
+                <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
+                <p className="text-[10px] text-rose-300 font-dm">Foto de perfil (opcional)</p>
+              </div>
+
               {[
                 { key: "name",     label: "Nome Completo",  type: "text",     placeholder: "Ex: Ana Silva",              required: false },
                 { key: "email",    label: "E-mail",         type: "email",    placeholder: "colaborador@email.com",       required: true  },
