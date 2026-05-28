@@ -71,6 +71,39 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
   }
 
+  if (action === 'rename_role') {
+    const { oldRole, newRole } = body;
+    if (!newRole?.trim()) return NextResponse.json({ error: 'Nome inválido.' }, { status: 400 });
+
+    // Cria novo cargo copiando permissões do antigo
+    const { data: oldData } = await supabase
+      .from('role_settings').select('permissions').eq('role', oldRole).single();
+
+    const { error: insertErr } = await supabase
+      .from('role_settings')
+      .insert({ role: newRole.trim(), permissions: oldData?.permissions ?? {} });
+    if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 });
+
+    // Migra usuários para o novo nome
+    await supabase.from('admin_users').update({ role: newRole.trim() }).eq('role', oldRole);
+
+    // Remove cargo antigo
+    await supabase.from('role_settings').delete().eq('role', oldRole);
+
+    return NextResponse.json({ success: true });
+  }
+
+  if (action === 'delete_role') {
+    const { role } = body;
+    const { data: usersWithRole } = await supabase
+      .from('admin_users').select('id').eq('role', role);
+    if (usersWithRole && usersWithRole.length > 0)
+      return NextResponse.json({ error: `Existem ${usersWithRole.length} usuário(s) com este cargo. Troque o cargo deles primeiro.` }, { status: 409 });
+    const { error } = await supabase.from('role_settings').delete().eq('role', role);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  }
+
   if (action === 'delete') {
     const { userId } = body;
     const { error } = await supabase

@@ -57,6 +57,8 @@ export default function UsuariosPage() {
   const [formError, setFormError]       = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const photoInputRef                   = useRef<HTMLInputElement>(null);
+  const [editingRoleName, setEditingRoleName] = useState(false);
+  const [roleNameDraft, setRoleNameDraft]     = useState("");
 
   useEffect(() => { loadAll(); }, []);
 
@@ -139,6 +141,39 @@ export default function UsuariosPage() {
     setSaving(null);
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, role } : u));
     if (selected?.id === userId) setSelected(s => s ? { ...s, role } : s);
+  }
+
+  async function renameRole(oldRole: string, newRole: string) {
+    if (!newRole.trim() || oldRole === newRole.trim()) { setEditingRoleName(false); return; }
+    setSaving("rename-" + oldRole);
+    const res = await fetch("/api/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "rename_role", oldRole, newRole: newRole.trim() }),
+    });
+    const data = await res.json();
+    setSaving(null);
+    if (!res.ok) { alert(data.error); return; }
+    setRoles(prev => prev.map(r => r.role === oldRole ? { ...r, role: newRole.trim() } : r));
+    setUsers(prev => prev.map(u => u.role === oldRole ? { ...u, role: newRole.trim() } : u));
+    if (selected?.role === oldRole) setSelected(s => s ? { ...s, role: newRole.trim() } : s);
+    setActiveRole(newRole.trim());
+    setEditingRoleName(false);
+  }
+
+  async function deleteRole(role: string) {
+    setSaving("delrole-" + role);
+    const res = await fetch("/api/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete_role", role }),
+    });
+    const data = await res.json();
+    setSaving(null);
+    if (!res.ok) { alert(data.error); return; }
+    const newRoles = roles.filter(r => r.role !== role);
+    setRoles(newRoles);
+    setActiveRole(newRoles[0]?.role ?? "");
   }
 
   async function togglePerm(roleName: string, permId: string) {
@@ -293,7 +328,7 @@ export default function UsuariosPage() {
               {roles.map(r => (
                 <button
                   key={r.role}
-                  onClick={() => setActiveRole(r.role)}
+                  onClick={() => { setActiveRole(r.role); setEditingRoleName(false); }}
                   className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all ${
                     activeRole === r.role ? "bg-[#5C1F2E] text-white" : "bg-rose-50 text-rose-400 hover:bg-rose-100"
                   }`}
@@ -302,6 +337,40 @@ export default function UsuariosPage() {
                 </button>
               ))}
             </div>
+
+            {/* Nome do cargo ativo com edição inline */}
+            {currentRole && (
+              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-rose-50">
+                {editingRoleName ? (
+                  <input
+                    autoFocus
+                    value={roleNameDraft}
+                    onChange={e => setRoleNameDraft(e.target.value)}
+                    onBlur={() => renameRole(activeRole, roleNameDraft)}
+                    onKeyDown={e => { if (e.key === "Enter") renameRole(activeRole, roleNameDraft); if (e.key === "Escape") setEditingRoleName(false); }}
+                    className="flex-1 text-[11px] font-bold uppercase tracking-widest text-[#5C1F2E] border border-[#D14237]/30 rounded-lg px-3 py-1.5 focus:outline-none bg-[#FDF6F2]"
+                  />
+                ) : (
+                  <button
+                    onClick={() => { setRoleNameDraft(activeRole); setEditingRoleName(true); }}
+                    className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-[#5C1F2E] hover:text-[#D14237] transition-colors group"
+                    title="Clique para renomear"
+                  >
+                    {activeRole}
+                    <span className="material-symbols-outlined text-[14px] text-rose-200 group-hover:text-[#D14237]">edit</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => { if (confirm(`Deletar cargo "${activeRole}"?`)) deleteRole(activeRole); }}
+                  disabled={!!saving}
+                  className="ml-auto p-1.5 text-rose-200 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                  title="Deletar cargo"
+                >
+                  {saving === "delrole-" + activeRole ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                </button>
+              </div>
+            )}
+
             {currentRole && (
               <div className="space-y-2">
                 {PERMISSIONS.map(p => {
