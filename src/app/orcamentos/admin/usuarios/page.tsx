@@ -257,7 +257,7 @@ export default function UsuariosPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="hidden sm:inline px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-500 border border-rose-100">
+                    <span className="hidden sm:inline px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-rose-50 text-rose-500 border border-rose-100">
                       {u.role}
                     </span>
                     <button
