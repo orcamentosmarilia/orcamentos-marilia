@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { toast, confirmDialog } from "@/components/Notify";
 import { Plus, Trash2, Loader2, TrendingDown } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 
@@ -50,7 +51,7 @@ export default function MotivosPerda() {
       setNewReason("");
       fetchData();
     } catch (err: any) {
-      alert("Erro: " + err.message);
+      toast.error("Erro: " + err.message);
     } finally {
       setSaving(false);
     }
@@ -62,7 +63,7 @@ export default function MotivosPerda() {
   }
 
   async function deleteReason(id: string) {
-    if (!confirm("Remover este motivo permanentemente?")) return;
+    if (!(await confirmDialog({ message: "Remover este motivo permanentemente?", danger: true, confirmText: "Remover" }))) return;
     await supabase.from("loss_reasons").delete().eq("id", id);
     fetchData();
   }

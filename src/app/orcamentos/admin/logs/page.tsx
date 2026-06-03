@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { toast, confirmDialog } from "@/components/Notify";
 import { History, Search, FileJson, RefreshCw, Trash2, CheckCircle2, AlertCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 
@@ -60,11 +61,11 @@ export default function AdminLogsPage() {
 
   const handleRestore = async (log: Log) => {
     if (!log.metadata) {
-      alert("Nenhum dado disponível para restaurar.");
+      toast.error("Nenhum dado disponível para restaurar.");
       return;
     }
 
-    if (!confirm(`Deseja restaurar o orçamento de ${log.metadata.client_name}?`)) {
+    if (!(await confirmDialog(`Deseja restaurar o orçamento de ${log.metadata.client_name}?`))) {
       return;
     }
 
@@ -83,15 +84,15 @@ export default function AdminLogsPage() {
         user_id: JSON.parse(localStorage.getItem("marilia_admin_session") || "{}").email || "admin"
       }]);
 
-      alert("Orçamento restaurado com sucesso!");
+      toast.success("Orçamento restaurado com sucesso!");
       fetchLogs();
     } catch (err: any) {
-      alert("Erro ao restaurar: " + err.message);
+      toast.error("Erro ao restaurar: " + err.message);
     }
   };
 
   const handlePermanentDelete = async (logId: string) => {
-    if (!confirm("Deseja excluir este log permanentemente? Isso removerá a possibilidade de recuperação.")) {
+    if (!(await confirmDialog({ message: "Excluir este log permanentemente? Isso removerá a possibilidade de recuperação.", danger: true, confirmText: "Excluir" }))) {
       return;
     }
 
@@ -100,7 +101,7 @@ export default function AdminLogsPage() {
       if (error) throw error;
       setLogs(prev => prev.filter(l => l.id !== logId));
     } catch (err: any) {
-      alert("Erro ao excluir log: " + err.message);
+      toast.error("Erro ao excluir log: " + err.message);
     }
   };
 

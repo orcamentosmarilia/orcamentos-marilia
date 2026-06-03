@@ -160,3 +160,9 @@ body {
   .status-sent { @apply bg-[#2B9CB5]/12 text-[#1A6E82] border border-[#2B9CB5]/35 rounded-full px-3 py-1 text-[11px] font-semibold; }
   .status-paid { @apply bg-brand-red/12 text-[#A83228] border border-brand-red/30 rounded-full px-3 py-1 text-[11px] font-semibold; }
 }
+
+/* Animação dos toasts/modais de notificação (componente Notify) */
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}

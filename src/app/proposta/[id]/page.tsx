@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { CheckCircle, Download, Loader2, Users, Clock, Calendar, Info, ChevronRight } from "lucide-react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { toast } from "@/components/Notify";
 
 export default function PublicProposalPage() {
   const params = useParams();
@@ -135,7 +136,7 @@ export default function PublicProposalPage() {
       setShowApprovalModal(false);
       fetchQuote();
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setIsApproving(false);
     }

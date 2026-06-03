@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { CheckCircle, XCircle, Download, Loader2, Users, Clock, Calendar, Info, MessageSquare, ChevronRight } from "lucide-react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { toast } from "@/components/Notify";
 
 export default function VisualizacaoProposta() {
   const params = useParams();
@@ -85,7 +86,7 @@ export default function VisualizacaoProposta() {
   const handleFinalApproval = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!billingData.document || !billingData.name) {
-      alert("Por favor, preencha todos os campos para faturamento.");
+      toast.error("Por favor, preencha todos os campos para faturamento.");
       return;
     }
 
@@ -128,9 +129,9 @@ export default function VisualizacaoProposta() {
 
       setShowApprovalModal(false);
       fetchQuote();
-      alert("Proposta aprovada com sucesso! Em breve nossa equipe entrará em contato.");
+      toast.success("Proposta aprovada com sucesso! Em breve nossa equipe entrará em contato.");
     } catch (err: any) {
-      alert("Erro ao aprovar: " + err.message);
+      toast.error("Erro ao aprovar: " + err.message);
     } finally {
       setIsApproving(false);
     }

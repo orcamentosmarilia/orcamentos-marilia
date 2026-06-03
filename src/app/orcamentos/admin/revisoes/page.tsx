@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { toast } from "@/components/Notify";
 import PageHeader from "@/components/PageHeader";
 import {
   Loader2, MessageSquare, ChevronRight, CheckCircle2, XCircle,
@@ -117,7 +118,7 @@ export default function RevisoesPage() {
       setAdminMessage("");
       fetchCorrections(selected.id);
     } catch (err: any) {
-      alert("Erro: " + err.message);
+      toast.error("Erro: " + err.message);
     } finally { setSending(false); }
   }
 
@@ -132,8 +133,8 @@ export default function RevisoesPage() {
       if (!res.ok) throw new Error("Erro ao aplicar correção");
       setPendingSuggestion(null);
       fetchCorrections(selected!.id);
-      alert("Regra atualizada com sucesso!");
-    } catch (err: any) { alert(err.message); }
+      toast.success("Regra atualizada com sucesso!");
+    } catch (err: any) { toast.error(err.message); }
     finally { setApplying(false); }
   }
 

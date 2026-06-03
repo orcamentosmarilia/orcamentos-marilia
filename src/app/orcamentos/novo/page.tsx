@@ -5,6 +5,7 @@ import { ArrowLeft, Loader2, Save } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { toast } from "@/components/Notify";
 
 interface Service {
   id: string;
@@ -256,11 +257,11 @@ export default function NovoOrcamento() {
       
       if (!res.ok) throw new Error(result.error || "Erro desconhecido");
       
-      alert("Rascunho salvo com sucesso! ID: " + result.quote_id);
+      toast.success("Rascunho salvo com sucesso!");
       router.push(`/orcamentos/${result.quote_id}/revisao`);
     } catch (error: any) {
       console.error("Erro ao salvar rascunho:", error);
-      alert("Erro ao salvar: " + error.message);
+      toast.error("Erro ao salvar: " + error.message);
     } finally {
       setIsSaving(false);
     }
@@ -289,12 +290,12 @@ export default function NovoOrcamento() {
       const result = await res.json();
 
       if (!res.ok) throw new Error(result.error || "Erro da IA");
-      if (result.mocked) alert(result.message);
+      if (result.mocked) toast.info(result.message);
 
       router.push(`/orcamentos/${result.quote_id}/revisao`);
     } catch (error: any) {
       console.error("Erro ao gerar IA:", error);
-      alert("Erro ao chamar IA: " + error.message);
+      toast.error("Erro ao chamar IA: " + error.message);
     } finally {
       setIsGenerating(false);
     }

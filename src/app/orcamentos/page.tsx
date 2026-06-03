@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import { toast } from "@/components/Notify";
 import { Trash2, AlertTriangle, ShieldCheck, Loader2 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 
@@ -66,7 +67,7 @@ export default function OrcamentosListPage() {
 
   const handleDelete = async () => {
     if (password !== masterPassword) {
-      alert("Senha incorreta!");
+      toast.error("Senha incorreta!");
       return;
     }
 
@@ -99,7 +100,7 @@ export default function OrcamentosListPage() {
       setPassword("");
       fetchQuotes();
     } catch (error: any) {
-      alert("Erro ao deletar orçamento: " + error.message);
+      toast.error("Erro ao deletar orçamento: " + error.message);
     } finally {
       setDeleting(false);
     }

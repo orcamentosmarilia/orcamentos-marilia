@@ -5,6 +5,7 @@ import { ArrowLeft, Trash2, Plus, Send, Save, Search, X, Truck, Loader2, Copy, C
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { toast } from "@/components/Notify";
 
 export default function RevisaoOrcamento() {
   const params = useParams();
@@ -345,7 +346,7 @@ export default function RevisaoOrcamento() {
       }).eq("id", quoteId);
       await fetchQuote();
     } catch (err: any) {
-      alert("Erro: " + err.message);
+      toast.error("Erro: " + err.message);
     } finally {
       setApproving(false);
     }
@@ -401,10 +402,10 @@ export default function RevisaoOrcamento() {
         delivery_fee: deliveryFee,
         delivery_neighborhood: deliveryNeighborhood
       }).eq("id", quoteId);
-      alert("Salvo com sucesso!");
+      toast.success("Salvo com sucesso!");
       fetchQuote();
     } catch (err: any) {
-      alert("Erro: " + err.message);
+      toast.error("Erro: " + err.message);
     } finally {
       setSaving(false);
     }

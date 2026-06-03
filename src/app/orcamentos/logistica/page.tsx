@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { toast, confirmDialog } from "@/components/Notify";
 import { Plus, Edit2, Trash2, X, Save, Box, Truck, Sparkles, ImagePlus, Loader2, Coffee } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { useRef } from "react";
@@ -153,9 +154,9 @@ export default function LogisticaPage() {
         { onConflict: 'key' }
       );
       if (error) throw error;
-      alert('Tipos de bebida salvos com sucesso!');
+      toast.success('Tipos de bebida salvos com sucesso!');
     } catch (err: any) {
-      alert('Erro ao salvar: ' + err.message);
+      toast.error('Erro ao salvar: ' + err.message);
     } finally {
       setSavingDrinks(false);
     }
@@ -201,7 +202,7 @@ export default function LogisticaPage() {
       return publicUrl;
     } catch (err: any) {
       console.error("Erro no upload:", err);
-      alert("Erro ao fazer upload da imagem: " + err.message);
+      toast.error("Erro ao fazer upload da imagem: " + err.message);
       return null;
     } finally {
       setUploadingImage(false);
@@ -230,21 +231,21 @@ export default function LogisticaPage() {
       fetchData();
       setIsServiceModalOpen(false);
     } catch (err: any) {
-      alert("Erro ao salvar serviço: " + err.message);
+      toast.error("Erro ao salvar serviço: " + err.message);
     } finally {
       setSaving(false);
     }
   };
 
   const deleteService = async (id: string) => {
-    if (!confirm("Remover este serviço?")) return;
+    if (!(await confirmDialog({ message: "Remover este serviço?", danger: true, confirmText: "Remover" }))) return;
     try {
       // Try to remove image from storage
       await supabase.storage.from("service-images").remove([`${id}.jpg`, `${id}.jpeg`, `${id}.png`, `${id}.webp`]);
       await supabase.from("services").delete().eq("id", id);
       fetchData();
     } catch (err: any) {
-      alert("Erro ao excluir: " + err.message);
+      toast.error("Erro ao excluir: " + err.message);
     }
   };
 
@@ -272,14 +273,14 @@ export default function LogisticaPage() {
       fetchData();
       setIsDeliveryModalOpen(false);
     } catch (err: any) {
-      alert("Erro ao salvar taxa: " + err.message);
+      toast.error("Erro ao salvar taxa: " + err.message);
     } finally {
       setSaving(false);
     }
   };
 
   const deleteDelivery = async (id: string) => {
-    if (!confirm("Remover esta taxa de entrega?")) return;
+    if (!(await confirmDialog({ message: "Remover esta taxa de entrega?", danger: true, confirmText: "Remover" }))) return;
     await supabase.from("delivery_fees").delete().eq("id", id);
     fetchData();
   };
@@ -321,21 +322,21 @@ export default function LogisticaPage() {
       fetchData();
       setIsProfileModalOpen(false);
     } catch (err: any) {
-      alert("Erro ao salvar perfil: " + err.message);
+      toast.error("Erro ao salvar perfil: " + err.message);
     } finally {
       setSaving(false);
     }
   };
 
   const deleteProfile = async (id: string) => {
-    if (!confirm("Remover este modelo de evento?")) return;
+    if (!(await confirmDialog({ message: "Remover este modelo de evento?", danger: true, confirmText: "Remover" }))) return;
     try {
       // Try to remove image from storage
       await supabase.storage.from("profile-images").remove([`${id}.jpg`, `${id}.jpeg`, `${id}.png`, `${id}.webp`]);
       await supabase.from("event_profiles").delete().eq("id", id);
       fetchData();
     } catch (err: any) {
-      alert("Erro ao excluir: " + err.message);
+      toast.error("Erro ao excluir: " + err.message);
     }
   };
 

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { toast } from "@/components/Notify";
 import { Camera, Save, Loader2, Eye, EyeOff, X, ImagePlus, KeyRound, Mail, Menu } from "lucide-react";
 
 interface UserProfile {
@@ -140,7 +141,7 @@ export default function OrcamentosLayout({ children }: { children: React.ReactNo
       setUser({ ...user, ...updates });
       setShowCompletionModal(false);
     } catch (err: any) {
-      alert("Erro ao atualizar: " + err.message);
+      toast.error("Erro ao atualizar: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -165,7 +166,7 @@ export default function OrcamentosLayout({ children }: { children: React.ReactNo
       if (!updRes.ok) throw new Error('Erro ao salvar foto');
       setUser({ ...user, photo_url: publicUrl });
     } catch (err: any) {
-      alert("Erro no upload: " + err.message);
+      toast.error("Erro no upload: " + err.message);
     } finally {
       setUploading(false);
     }
@@ -226,7 +227,7 @@ export default function OrcamentosLayout({ children }: { children: React.ReactNo
       localStorage.setItem("marilia_admin_session", JSON.stringify({ ...session, email: newEmail.trim() }));
       setUser({ ...user!, email: newEmail.trim() });
       setNewEmail(""); setCurrentPassword("");
-      setProfileError(""); alert("E-mail atualizado com sucesso!");
+      setProfileError(""); toast.success("E-mail atualizado com sucesso!");
     } catch (err: any) {
       setProfileError("Erro: " + err.message);
     } finally {
@@ -250,7 +251,7 @@ export default function OrcamentosLayout({ children }: { children: React.ReactNo
       });
       if (!res2.ok) throw new Error((await res2.json()).error);
       setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
-      alert("Senha atualizada com sucesso!");
+      toast.success("Senha atualizada com sucesso!");
     } catch (err: any) {
       setProfileError("Erro: " + err.message);
     } finally {

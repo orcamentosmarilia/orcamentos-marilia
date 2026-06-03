@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { toast } from "@/components/Notify";
 import Link from "next/link";
 import {
   Trash2, AlertTriangle, ShieldCheck, Loader2,
@@ -198,7 +199,7 @@ export default function PipelinePage() {
 
   /* ── Delete ── */
   async function handleDelete() {
-    if (password !== masterPassword) { alert("Senha incorreta!"); return; }
+    if (password !== masterPassword) { toast.error("Senha incorreta!"); return; }
     setDeleting(true);
     try {
       const { data: qd } = await supabase.from("quotes").select("*").eq("id", deleteModal.quoteId).single();
@@ -214,7 +215,7 @@ export default function PipelinePage() {
       setPassword("");
       fetchQuotes();
     } catch (err: any) {
-      alert("Erro: " + err.message);
+      toast.error("Erro: " + err.message);
     } finally {
       setDeleting(false);
     }
