@@ -2,7 +2,8 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Search, Plus, Edit2, Trash2, X, Save, ImagePlus, Loader2, FolderInput } from "lucide-react";
+import { toast, confirmDialog } from "@/components/Notify";
+import { Search, Plus, Edit2, Trash2, X, Save, Check, ImagePlus, Loader2, FolderInput } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 
 interface Product {
@@ -35,6 +36,7 @@ export default function CatalogoPage() {
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
   const [newCatName, setNewCatName] = useState("");
   const [editingCat, setEditingCat] = useState<Category | null>(null);
+  const [editCatName, setEditCatName] = useState(""); // rascunho da edição inline
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -85,7 +87,7 @@ export default function CatalogoPage() {
   const clearSelection = () => setSelectedIds(new Set());
 
   const handleBulkDelete = async () => {
-    if (!confirm(`Tem certeza que deseja apagar ${selectedIds.size} produto(s)?`)) return;
+    if (!(await confirmDialog({ message: `Apagar ${selectedIds.size} produto(s)? Esta ação não pode ser desfeita.`, danger: true, confirmText: "Apagar" }))) return;
     setBulkLoading(true);
     try {
       const ids = Array.from(selectedIds);
@@ -97,7 +99,7 @@ export default function CatalogoPage() {
       clearSelection();
       fetchProducts();
     } catch (err: any) {
-      alert("Erro ao apagar: " + err.message);
+      toast.error("Erro ao apagar: " + err.message);
     } finally {
       setBulkLoading(false);
     }
@@ -115,7 +117,7 @@ export default function CatalogoPage() {
       setBulkCategory("");
       fetchProducts();
     } catch (err: any) {
-      alert("Erro ao mover categoria: " + err.message);
+      toast.error("Erro ao mover categoria: " + err.message);
     } finally {
       setBulkLoading(false);
     }
@@ -132,7 +134,7 @@ export default function CatalogoPage() {
       setBulkTier("");
       fetchProducts();
     } catch (err: any) {
-      alert("Erro ao definir modalidade: " + err.message);
+      toast.error("Erro ao definir modalidade: " + err.message);
     } finally {
       setBulkLoading(false);
     }
@@ -265,7 +267,7 @@ export default function CatalogoPage() {
       return publicUrl;
     } catch (err: any) {
       console.error("Erro no upload:", err);
-      alert("Erro ao fazer upload da imagem: " + err.message);
+      toast.error("Erro ao fazer upload da imagem: " + err.message);
       return null;
     } finally {
       setUploadingImage(false);
@@ -308,14 +310,14 @@ export default function CatalogoPage() {
       fetchProducts();
       closeModal();
     } catch (error: any) {
-      alert("Erro ao salvar produto: " + error.message);
+      toast.error("Erro ao salvar produto: " + error.message);
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja remover este item do catálogo?")) return;
+    if (!(await confirmDialog({ message: "Remover este item do catálogo?", danger: true, confirmText: "Remover" }))) return;
     
     try {
       // Try to remove image from storage too
@@ -325,32 +327,67 @@ export default function CatalogoPage() {
       if (error) throw error;
       fetchProducts();
     } catch (err: any) {
-      alert("Erro ao excluir: " + err.message);
+      toast.error("Erro ao excluir: " + err.message);
     }
   };
 
-  const handleSaveCategory = async () => {
-    if (!newCatName.trim()) return;
+  // Adiciona nova categoria (input do topo)
+  const handleAddCategory = async () => {
+    const name = newCatName.trim();
+    if (!name) return;
+    // Evita duplicado (ignorando maiúsculas/minúsculas)
+    if (dbCategories.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+      toast.error(`A categoria "${name}" já existe.`);
+      return;
+    }
     try {
-      if (editingCat) {
-        const { error } = await supabase
-          .from("product_categories")
-          .update({ name: newCatName.trim() })
-          .eq("id", editingCat.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("product_categories")
-          .insert([{ name: newCatName.trim() }]);
-        if (error) throw error;
-      }
+      const { error } = await supabase.from("product_categories").insert([{ name }]);
+      if (error) throw error;
       setNewCatName("");
-      setEditingCat(null);
       fetchCategories();
     } catch (err: any) {
-      alert("Erro ao salvar categoria: " + err.message);
+      toast.error("Erro ao adicionar categoria: " + err.message);
     }
   };
+
+  // Salva a edição inline de uma categoria
+  const handleUpdateCategory = async () => {
+    if (!editingCat) return;
+    const name = editCatName.trim();
+    if (!name) return;
+    if (name === editingCat.name) { setEditingCat(null); setEditCatName(""); return; }
+    if (dbCategories.some(c => c.id !== editingCat.id && c.name.toLowerCase() === name.toLowerCase())) {
+      toast.error(`A categoria "${name}" já existe.`);
+      return;
+    }
+    const oldName = editingCat.name;
+    try {
+      // 1) Renomeia a categoria
+      const { error } = await supabase
+        .from("product_categories")
+        .update({ name })
+        .eq("id", editingCat.id);
+      if (error) throw error;
+      // 2) CASCATA: atualiza os produtos que usavam o nome antigo (evita órfãos)
+      const affected = products.filter(p => p.category === oldName).length;
+      if (affected > 0) {
+        const { error: pErr } = await supabase
+          .from("products")
+          .update({ category: name })
+          .eq("category", oldName);
+        if (pErr) throw pErr;
+      }
+      setEditingCat(null);
+      setEditCatName("");
+      fetchCategories();
+      fetchProducts();
+    } catch (err: any) {
+      toast.error("Erro ao salvar categoria: " + err.message);
+    }
+  };
+
+  const startEditCat = (cat: Category) => { setEditingCat(cat); setEditCatName(cat.name); };
+  const cancelEditCat = () => { setEditingCat(null); setEditCatName(""); };
 
   const handleDeleteCategory = async (cat: Category) => {
     const hasProducts = products.some(p => p.category === cat.name);
@@ -359,7 +396,7 @@ export default function CatalogoPage() {
       msg += "\n\nAVISO: Existem produtos vinculados a esta categoria. Eles NÃO serão excluídos, mas você precisará reatribuí-los a uma nova categoria manualmente.";
     }
 
-    if (!confirm(msg)) return;
+    if (!(await confirmDialog({ message: msg, danger: true, confirmText: "Excluir" }))) return;
     
     try {
       const { error } = await supabase
@@ -369,7 +406,7 @@ export default function CatalogoPage() {
       if (error) throw error;
       fetchCategories();
     } catch (err: any) {
-      alert("Erro ao excluir categoria: " + err.message);
+      toast.error("Erro ao excluir categoria: " + err.message);
     }
   };
 
@@ -382,35 +419,63 @@ export default function CatalogoPage() {
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
             <div className="p-6 border-b border-rose-50 flex justify-between items-center">
               <h2 className="font-lora text-xl font-bold text-[#5C1F2E]">Gerenciar Categorias</h2>
-              <button onClick={() => { setIsCatModalOpen(false); setEditingCat(null); setNewCatName(""); }} className="text-rose-300 hover:text-[#D14237] p-1">
+              <button onClick={() => { setIsCatModalOpen(false); cancelEditCat(); setNewCatName(""); }} className="text-rose-300 hover:text-[#D14237] p-1">
                 <X size={20} />
               </button>
             </div>
             <div className="p-6 overflow-y-auto font-dm space-y-4">
+              {/* Adicionar nova categoria */}
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={newCatName}
                   onChange={e => setNewCatName(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && handleSaveCategory()}
-                  placeholder="Nome da categoria..."
+                  onKeyDown={e => e.key === "Enter" && handleAddCategory()}
+                  placeholder="Nova categoria..."
                   className="flex-1 border border-rose-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#5C1F2E] font-dm text-[#5C1F2E] placeholder:text-rose-200"
                 />
-                <button onClick={handleSaveCategory}
-                  className="bg-[#5C1F2E] text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-[#4A1925] transition-colors font-dm">
-                  {editingCat ? "Salvar" : "Adicionar"}
+                <button onClick={handleAddCategory}
+                  className="flex items-center gap-1.5 bg-[#5C1F2E] text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-[#4A1925] transition-colors font-dm">
+                  <Plus size={15} /> Adicionar
                 </button>
               </div>
+
               <div className="space-y-2">
-                {dbCategories.map(cat => (
-                  <div key={cat.id} className="flex items-center justify-between px-4 py-3 bg-rose-50/40 rounded-xl border border-rose-50 group">
-                    <span className="text-sm font-dm font-medium text-[#5C1F2E]">{cat.name}</span>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => { setEditingCat(cat); setNewCatName(cat.name); }} className="p-1.5 text-rose-300 hover:text-[#5C1F2E]"><Edit2 size={14} /></button>
-                      <button onClick={() => handleDeleteCategory(cat)} className="p-1.5 text-rose-300 hover:text-[#D14237]"><Trash2 size={14} /></button>
+                {dbCategories.map(cat => {
+                  const isEditing = editingCat?.id === cat.id;
+                  return (
+                    <div key={cat.id} className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border transition-colors ${isEditing ? "bg-white border-[#5C1F2E]/40" : "bg-rose-50/40 border-rose-50"}`}>
+                      {isEditing ? (
+                        <>
+                          {/* Edição inline — no próprio card */}
+                          <input
+                            autoFocus
+                            type="text"
+                            value={editCatName}
+                            onChange={e => setEditCatName(e.target.value)}
+                            onKeyDown={e => { if (e.key === "Enter") handleUpdateCategory(); if (e.key === "Escape") cancelEditCat(); }}
+                            className="flex-1 border border-rose-100 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[#5C1F2E] font-dm text-[#5C1F2E]"
+                          />
+                          <div className="flex gap-1 shrink-0">
+                            <button onClick={handleUpdateCategory} title="Salvar" className="p-1.5 bg-[#5C1F2E] text-white rounded-lg hover:bg-[#4A1925] transition-colors"><Check size={14} /></button>
+                            <button onClick={cancelEditCat} title="Cancelar" className="p-1.5 text-rose-300 hover:text-[#D14237] rounded-lg transition-colors"><X size={14} /></button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-sm font-dm font-medium text-[#5C1F2E] truncate">{cat.name}</span>
+                          <div className="flex gap-1 shrink-0">
+                            <button onClick={() => startEditCat(cat)} title="Editar" className="p-1.5 text-rose-400 hover:text-[#5C1F2E] hover:bg-rose-100 rounded-lg transition-colors"><Edit2 size={14} /></button>
+                            <button onClick={() => handleDeleteCategory(cat)} title="Excluir" className="p-1.5 text-rose-400 hover:text-[#D14237] hover:bg-rose-100 rounded-lg transition-colors"><Trash2 size={14} /></button>
+                          </div>
+                        </>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
+                {dbCategories.length === 0 && (
+                  <p className="text-center text-rose-300 text-sm py-6 font-dm">Nenhuma categoria ainda. Adicione a primeira acima.</p>
+                )}
               </div>
             </div>
           </div>
@@ -513,7 +578,7 @@ export default function CatalogoPage() {
               </span>
               <div className="flex items-center gap-2 ml-auto flex-wrap">
                 <select value={bulkCategory} onChange={e => setBulkCategory(e.target.value)}
-                  className="border border-white/30 bg-white/10 text-white rounded-lg px-3 py-1.5 text-xs font-dm focus:outline-none focus:border-white">
+                  className="border border-white/40 bg-white text-[#5C1F2E] rounded-lg px-3 py-1.5 text-xs font-dm font-medium focus:outline-none focus:border-white cursor-pointer">
                   <option value="">Mover para categoria...</option>
                   {dbCategories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
                 </select>
@@ -523,7 +588,7 @@ export default function CatalogoPage() {
                 </button>
                 <div className="h-5 w-px bg-white/20" />
                 <select value={bulkTier} onChange={e => setBulkTier(e.target.value)}
-                  className="border border-white/30 bg-white/10 text-white rounded-lg px-3 py-1.5 text-xs font-dm focus:outline-none focus:border-white">
+                  className="border border-white/40 bg-white text-[#5C1F2E] rounded-lg px-3 py-1.5 text-xs font-dm font-medium focus:outline-none focus:border-white cursor-pointer">
                   <option value="">Definir modalidade...</option>
                   <option value="Econômico">Econômico</option>
                   <option value="Elaborado">Elaborado</option>

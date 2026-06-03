@@ -4,9 +4,10 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import PageHeader from "@/components/PageHeader";
 import {
-  Save, Loader2, Sparkles, Camera, User, Plus,
+  Save, Loader2, Sparkles, Plus,
   ChevronDown, ChevronUp, ToggleLeft, ToggleRight, X, Check, GripVertical, Pencil, Trash2
 } from "lucide-react";
+import { toast, confirmDialog } from "@/components/Notify";
 
 interface ConfigState {
   ai_provider: string;
@@ -29,14 +30,6 @@ interface BusinessRule {
   active: boolean;
 }
 
-interface UserProfile {
-  id: string;
-  name: string;
-  email: string;
-  whatsapp: string;
-  role: string;
-  photo_url: string;
-}
 
 const DEFAULT_RULES: BusinessRule[] = [
   { id: 'r1', title: 'Variedade de salgados', text: 'Inclua ao menos 3 tipos diferentes de salgados em qualquer cardápio com mais de 30 pessoas. Nunca repita a mesma categoria mais de uma vez.', active: true },
@@ -63,10 +56,8 @@ export default function SettingsPage() {
   const [configs, setConfigs] = useState<ConfigState>({ ai_provider: "anthropic", ai_model: "claude-3-haiku-20240307", ai_api_key: "", ai_global_prompt: "", security_master_password: "" });
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
-  const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
 
   // Category hierarchy
   const [categoryGroups, setCategoryGroups] = useState<CategoryGroup[]>([]);
@@ -149,12 +140,6 @@ export default function SettingsPage() {
         setCategoryGroups(filterSubs(DEFAULT_CATEGORY_GROUPS));
       }
 
-      const sessionStr = localStorage.getItem("marilia_admin_session");
-      if (sessionStr) {
-        const session = JSON.parse(sessionStr);
-        const { data: userData } = await supabase.from("admin_users").select("*").eq("email", session.email).single();
-        if (userData) setUser(userData);
-      }
     } catch (error) {
       console.error("Erro ao carregar configurações:", error);
     } finally {
@@ -179,8 +164,8 @@ export default function SettingsPage() {
     persistRules(updated);
     setEditingRule(null);
   };
-  const deleteRule = (id: string) => {
-    if (!confirm('Excluir esta regra?')) return;
+  const deleteRule = async (id: string) => {
+    if (!(await confirmDialog({ message: 'Excluir esta regra?', danger: true, confirmText: 'Excluir' }))) return;
     const updated = rules.filter(r => r.id !== id);
     setRules(updated);
     persistRules(updated);
@@ -198,26 +183,6 @@ export default function SettingsPage() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setConfigs(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleUserChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    if (user) setUser({ ...user, [name]: value });
-  };
-
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-    try {
-      setUploading(true);
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-${Math.random()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage.from('profile-images').upload(`avatars/${fileName}`, file);
-      if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage.from('profile-images').getPublicUrl(`avatars/${fileName}`);
-      await supabase.from('admin_users').update({ photo_url: publicUrl }).eq('id', user.id);
-      setUser({ ...user, photo_url: publicUrl });
-    } catch (err: any) { alert("Erro no upload: " + err.message); } finally { setUploading(false); }
   };
 
   // ── Category group helpers ────────────────────────────────────────
@@ -252,8 +217,18 @@ export default function SettingsPage() {
     setCategoryGroups(prev => prev.map(g => g.id !== groupId ? g : { ...g, subcategories: [...g.subcategories, cat] }));
   };
 
-  const deleteGroup = (id: string) => {
-    if (!confirm('Excluir este grupo? As categorias voltarão para "Não agrupadas".')) return;
+  // Move uma categoria de um grupo para outro (numa única atualização de estado)
+  const moveSubcatToGroup = (fromId: string, toId: string, cat: string) => {
+    if (!toId || fromId === toId) return;
+    setCategoryGroups(prev => prev.map(g => {
+      if (g.id === fromId) return { ...g, subcategories: g.subcategories.filter(s => s !== cat) };
+      if (g.id === toId)   return { ...g, subcategories: [...g.subcategories, cat] };
+      return g;
+    }));
+  };
+
+  const deleteGroup = async (id: string) => {
+    if (!(await confirmDialog({ message: 'Excluir este grupo? As categorias voltarão para "Não agrupadas".', danger: true, confirmText: 'Excluir' }))) return;
     setCategoryGroups(prev => prev.filter(g => g.id !== id));
     if (expandedGroupId === id) setExpandedGroupId(null);
   };
@@ -280,10 +255,9 @@ export default function SettingsPage() {
       await supabase.from("settings").upsert({ key: "security_master_password", value: configs.security_master_password, updated_at: new Date().toISOString() }, { onConflict: 'key' });
       await supabase.from("settings").upsert({ key: "category_order", value: categoryGroups, updated_at: new Date().toISOString() }, { onConflict: 'key' });
       await supabase.from("settings").upsert({ key: "business_rules", value: rules, updated_at: new Date().toISOString() }, { onConflict: 'key' });
-      if (user) await supabase.from("admin_users").update({ name: user.name, whatsapp: user.whatsapp, role: user.role, photo_url: user.photo_url }).eq("id", user.id);
-      alert("Configurações salvas com sucesso!");
+      toast.success("Configurações salvas com sucesso!");
     } catch (error: any) {
-      alert("Erro ao salvar: " + error.message);
+      toast.error("Erro ao salvar: " + error.message);
     } finally { setSaving(false); }
   };
 
@@ -297,45 +271,6 @@ export default function SettingsPage() {
       />
 
       <div className="grid grid-cols-1 gap-8">
-
-        {/* PERFIL */}
-        <section className="bg-white rounded-3xl shadow-sm border border-[var(--color-brand-pink2)] p-8">
-          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[var(--color-brand-pink2)]">
-            <User className="text-[var(--color-brand-red)]" size={24} />
-            <h2 className="font-lora text-xl font-bold text-[#5C1F2E]">Meu Perfil</h2>
-          </div>
-          <div className="flex flex-col md:flex-row gap-8 items-start">
-            <div className="relative group">
-              <div className="w-32 h-32 rounded-3xl bg-rose-50 border-2 border-dashed border-rose-200 flex items-center justify-center overflow-hidden relative">
-                {user?.photo_url ? <img src={user.photo_url} className="w-full h-full object-cover" /> : <User size={48} className="text-rose-200" />}
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"><Camera className="text-white" size={24} /></div>
-                <input type="file" accept="image/*" onChange={handlePhotoUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
-              </div>
-              {uploading && <div className="absolute -bottom-2 right-0 bg-white rounded-full p-1 shadow-md"><Loader2 className="animate-spin text-rose-500" size={16} /></div>}
-            </div>
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-              {[
-                { label: 'Nome Completo', name: 'name', type: 'text', placeholder: 'Seu nome...' },
-                { label: 'WhatsApp', name: 'whatsapp', type: 'text', placeholder: '(00) 00000-0000' },
-              ].map(f => (
-                <div key={f.name}>
-                  <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-2 block">{f.label}</label>
-                  <input type={f.type} name={f.name} value={(user as any)?.[f.name] || ""} onChange={handleUserChange} className="w-full border border-[var(--color-brand-pink2)] rounded-xl p-3 text-sm focus:outline-none focus:border-[var(--color-brand-red)] font-dm" placeholder={f.placeholder} />
-                </div>
-              ))}
-              <div>
-                <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-2 block">Cargo / Função</label>
-                <select name="role" value={user?.role || ""} onChange={handleUserChange} className="w-full border border-[var(--color-brand-pink2)] rounded-xl p-3 text-sm focus:outline-none focus:border-[var(--color-brand-red)] bg-white font-dm">
-                  {['Administrador', 'Vendedor(a)', 'Gerente', 'Atendimento'].map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-2 block">E-mail (Login)</label>
-                <input type="text" value={user?.email || ""} disabled className="w-full border border-[var(--color-brand-pink2)] rounded-xl p-3 text-sm bg-gray-50 text-gray-400 font-dm cursor-not-allowed" />
-              </div>
-            </div>
-          </div>
-        </section>
 
         {/* INTELIGÊNCIA ARTIFICIAL */}
         <section className="bg-white rounded-3xl shadow-sm border border-[var(--color-brand-pink2)] p-8">
@@ -452,11 +387,32 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  {/* Subcategory pills (always visible as summary) */}
+                  {/* Subcategory pills (always visible as summary) — editáveis direto */}
                   {!isExpanded && group.subcategories.length > 0 && (
                     <div className="px-5 py-3 flex flex-wrap gap-1.5 bg-white border-t border-[var(--color-brand-pink)]/50">
                       {group.subcategories.map(cat => (
-                        <span key={cat} className="text-[11px] font-dm bg-rose-50 text-rose-500 border border-rose-100 px-2.5 py-1 rounded-full">{cat}</span>
+                        <div key={cat} className="flex items-center gap-1 bg-rose-50 border border-rose-100 rounded-full pl-2.5 pr-1 py-0.5">
+                          <span className="text-[11px] font-dm text-rose-500">{cat}</span>
+                          <select
+                            value=""
+                            onChange={e => {
+                              if (e.target.value === '__remove__') removeSubcat(group.id, cat);
+                              else if (e.target.value) moveSubcatToGroup(group.id, e.target.value, cat);
+                            }}
+                            className="text-[10px] font-bold text-rose-400 bg-transparent rounded px-0.5 py-0.5 focus:outline-none cursor-pointer hover:text-[var(--color-brand-red)]"
+                            title="Mover ou remover desta categoria"
+                          >
+                            <option value="">⋯</option>
+                            {categoryGroups.filter(g => g.id !== group.id).length > 0 && (
+                              <optgroup label="Mover para">
+                                {categoryGroups.filter(g => g.id !== group.id).map(g => (
+                                  <option key={g.id} value={g.id}>{g.label}</option>
+                                ))}
+                              </optgroup>
+                            )}
+                            <option value="__remove__">✕ Remover do grupo</option>
+                          </select>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -530,10 +486,21 @@ export default function SettingsPage() {
               <p className="text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-3">Não agrupadas ({ungroupedCategories.length})</p>
               <div className="flex flex-wrap gap-2">
                 {ungroupedCategories.map(cat => (
-                  <span key={cat} className="text-xs font-dm bg-gray-50 text-gray-400 border border-gray-200 px-3 py-1.5 rounded-full italic">{cat}</span>
+                  <div key={cat} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full pl-3 pr-1 py-1">
+                    <span className="text-xs font-dm text-gray-500">{cat}</span>
+                    <select
+                      value=""
+                      onChange={e => { if (e.target.value) addSubcatToGroup(e.target.value, cat); }}
+                      className="text-[11px] font-bold text-[var(--color-brand-red)] bg-white border border-rose-100 rounded-full px-2 py-1 focus:outline-none focus:border-[var(--color-brand-red)] cursor-pointer"
+                      title="Adicionar a um grupo"
+                    >
+                      <option value="">+ grupo</option>
+                      {categoryGroups.map(g => <option key={g.id} value={g.id}>{g.label}</option>)}
+                    </select>
+                  </div>
                 ))}
               </div>
-              <p className="text-[10px] text-rose-300 mt-2 italic">Expanda um grupo e use o dropdown para adicionar estas categorias.</p>
+              <p className="text-[10px] text-rose-300 mt-2 italic">Clique em &quot;+ grupo&quot; em cada categoria para incluí-la num grupo. Não esqueça de <b>Salvar Configurações</b>.</p>
             </div>
           )}
         </section>

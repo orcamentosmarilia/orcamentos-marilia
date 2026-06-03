@@ -108,14 +108,22 @@ export async function POST(request: Request) {
     let materialType = formData.material || 'Descartável';
 
     // 1. Fetch all settings from DB (single source of truth — nada hardcoded)
-    const [{ data: configs }, { data: calcRulesData }, { data: modalidadeData }, { data: compositionData }, { data: drinkMappingsData }, { data: businessRulesData }] = await Promise.all([
+    const [{ data: configs }, { data: calcRulesData }, { data: modalidadeData }, { data: compositionData }, { data: drinkMappingsData }, { data: businessRulesData }, { data: categoriesData }] = await Promise.all([
       supabase.from('system_config').select('key, value'),
       supabase.from('settings').select('value').eq('key', 'calculation_rules').single(),
       supabase.from('settings').select('value').eq('key', 'modalidade_config').single(),
       supabase.from('settings').select('value').eq('key', 'composition_rules').single(),
       supabase.from('settings').select('value').eq('key', 'drink_mappings').single(),
       supabase.from('settings').select('value').eq('key', 'business_rules').single(),
+      // Categorias reais do catálogo — fonte única da verdade (nada chumbado no código)
+      supabase.from('product_categories').select('name').order('name'),
     ]);
+
+    // Lista dinâmica de categorias existentes para orientar a IA (sem nomes fixos no código)
+    const categoryNames: string[] = (categoriesData || []).map((c: any) => c.name).filter(Boolean);
+    const categoriaDescricao = categoryNames.length > 0
+      ? `Categoria exata do catálogo (use exatamente um destes nomes): ${categoryNames.map(n => `"${n}"`).join(', ')}. Omita para buscar em todas.`
+      : 'Categoria do catálogo. Omita para buscar em todas.';
 
     // Validate critical settings — return clear error for admin if missing
     if (!calcRulesData?.value) {
@@ -511,7 +519,7 @@ Retorne apenas o JSON.`;
         buscar_produtos: tool({
           description: 'Busca produtos e preços atualizados do catálogo. Use tier para filtrar por modalidade econômica/elaborada.',
           inputSchema: zodSchema(z.object({
-            categoria: z.string().optional().describe('Categoria exata do catálogo: "Salgados (Cento)", "Pastéis (Cento)", "Pastéis Crocantes (Cento)", "Folhados (Cento)", "Doces (Cento)", "Sanduíches (Cento)", "Bebidas", "Sucos Naturais", "Tortas Salgadas", "Tortas Doces", "Produtos Congelados". Omita para buscar todos.'),
+            categoria: z.string().optional().describe(categoriaDescricao),
             tier: z.enum(['Econômico', 'Elaborado']).optional().describe('Modalidade: "Econômico" = produtos econômicos, "Elaborado" = produtos elaborados. Omita para trazer de ambas as modalidades.'),
           })),
           execute: async (input) => {
