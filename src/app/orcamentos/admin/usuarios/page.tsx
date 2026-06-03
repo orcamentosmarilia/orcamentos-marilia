@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { toast, confirmDialog } from "@/components/Notify";
 import {
   Users, UserCog, ShieldCheck, Mail, Phone, Save,
   Loader2, Search, ChevronRight, Info, AlertCircle,
@@ -59,20 +60,40 @@ export default function UsuariosPage() {
   const photoInputRef                   = useRef<HTMLInputElement>(null);
   const [editingRoleName, setEditingRoleName] = useState(false);
   const [roleNameDraft, setRoleNameDraft]     = useState("");
+  // Rascunho de permissões — só persiste ao clicar em Salvar
+  const [permDraft, setPermDraft]       = useState<Record<string, boolean>>({});
+  const [currentRoleSelf, setCurrentRoleSelf] = useState<string | null>(null);
+  // Modal de novo cargo
+  const [showCreateRole, setShowCreateRole] = useState(false);
+  const [newRoleName, setNewRoleName]       = useState("");
+  const [newRoleIsAdmin, setNewRoleIsAdmin] = useState(false);
+  const [roleError, setRoleError]           = useState("");
 
   useEffect(() => { loadAll(); }, []);
+
+  // Guarda o cargo do usuário logado para avisar quando ele edita o próprio cargo
+  useEffect(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem("marilia_admin_session") || "{}");
+      setCurrentRoleSelf(s.role ?? null);
+    } catch {}
+  }, []);
+
+  // Sincroniza o rascunho quando troca de cargo ativo
+  useEffect(() => {
+    const r = roles.find(x => x.role === activeRole);
+    setPermDraft({ ...(r?.permissions ?? {}) });
+  }, [activeRole, roles]);
 
   async function loadAll() {
     setLoading(true);
     try {
-      const [uRes, rRes] = await Promise.all([
-        fetch("/api/admin/users").then(r => r.json()),
-        supabase.from("role_settings").select("*"),
-      ]);
+      // Lê usuários E cargos pelo servidor (service role) — ignora RLS, traz todos os cargos
+      const uRes = await fetch("/api/admin/users").then(r => r.json());
       setUsers(uRes.users ?? []);
-      const r = rRes.data ?? [];
+      const r = uRes.roles ?? [];
       setRoles(r);
-      if (r.length > 0) setActiveRole(r[0].role);
+      if (r.length > 0) setActiveRole(prev => prev || r[0].role);
     } catch (e) {
       console.error("loadAll error:", e);
     } finally {
@@ -119,7 +140,7 @@ export default function UsuariosPage() {
   }
 
   async function deleteUser(u: AdminUser) {
-    if (!confirm(`Remover "${u.name || u.email}"? Esta ação não pode ser desfeita.`)) return;
+    if (!(await confirmDialog({ message: `Remover "${u.name || u.email}"? Esta ação não pode ser desfeita.`, danger: true, confirmText: "Remover" }))) return;
     setSaving("del-" + u.id);
     await fetch("/api/admin/users", {
       method: "POST",
@@ -153,7 +174,7 @@ export default function UsuariosPage() {
     });
     const data = await res.json();
     setSaving(null);
-    if (!res.ok) { alert(data.error); return; }
+    if (!res.ok) { toast.error(data.error); return; }
     setRoles(prev => prev.map(r => r.role === oldRole ? { ...r, role: newRole.trim() } : r));
     setUsers(prev => prev.map(u => u.role === oldRole ? { ...u, role: newRole.trim() } : u));
     if (selected?.role === oldRole) setSelected(s => s ? { ...s, role: newRole.trim() } : s);
@@ -170,21 +191,67 @@ export default function UsuariosPage() {
     });
     const data = await res.json();
     setSaving(null);
-    if (!res.ok) { alert(data.error); return; }
+    if (!res.ok) { toast.error(data.error); return; }
     const newRoles = roles.filter(r => r.role !== role);
     setRoles(newRoles);
     setActiveRole(newRoles[0]?.role ?? "");
   }
 
-  async function togglePerm(roleName: string, permId: string) {
-    const r = roles.find(x => x.role === roleName);
-    if (!r) return;
-    const newPerms = { ...(r.permissions ?? {}), [permId]: !r.permissions?.[permId] };
-    setSaving("perm-" + roleName);
-    await supabase.from("role_settings").update({ permissions: newPerms }).eq("role", roleName);
-    setSaving(null);
-    setRoles(prev => prev.map(x => x.role === roleName ? { ...x, permissions: newPerms } : x));
+  // Apenas altera o rascunho local — só persiste em savePermissions()
+  function togglePermDraft(permId: string) {
+    setPermDraft(prev => ({ ...prev, [permId]: !prev[permId] }));
   }
+
+  async function savePermissions() {
+    setSaving("perm-" + activeRole);
+    const res = await fetch("/api/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "update_permissions", role: activeRole, permissions: permDraft }),
+    });
+    const data = await res.json();
+    setSaving(null);
+    if (!res.ok) { toast.error(data.error ?? "Erro ao salvar permissões."); return; }
+    setRoles(prev => prev.map(x => x.role === activeRole ? { ...x, permissions: { ...permDraft } } : x));
+    // Se o admin editou o próprio cargo, as permissões só valem após recarregar
+    toast.success("Permissões salvas!");
+    if (currentRoleSelf && currentRoleSelf === activeRole) {
+      if (await confirmDialog({ message: "Você editou o seu próprio cargo. É preciso recarregar a página para aplicar as permissões agora. Recarregar?", confirmText: "Recarregar", cancelText: "Depois" })) {
+        window.location.reload();
+      }
+    }
+  }
+
+  async function createRole() {
+    setRoleError("");
+    const name = newRoleName.trim();
+    if (!name) { setRoleError("Informe o nome do cargo."); return; }
+    // Admin = todas as permissões ligadas; senão começa só com o dashboard
+    const permissions: Record<string, boolean> = newRoleIsAdmin
+      ? { ...Object.fromEntries(PERMISSIONS.map(p => [p.id, true])), is_admin: true }
+      : { dashboard_view: true };
+    setSaving("createrole");
+    const res = await fetch("/api/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "create_role", name, permissions }),
+    });
+    const data = await res.json();
+    setSaving(null);
+    if (!res.ok) { setRoleError(data.error ?? "Erro ao criar cargo."); return; }
+    setRoles(prev => [...prev, data.role].sort((a, b) => a.role.localeCompare(b.role)));
+    setActiveRole(data.role.role);
+    setShowCreateRole(false);
+    setNewRoleName("");
+    setNewRoleIsAdmin(false);
+  }
+
+  const permDirty = (() => {
+    const orig = roles.find(r => r.role === activeRole)?.permissions ?? {};
+    const keys = new Set([...PERMISSIONS.map(p => p.id), ...Object.keys(orig), ...Object.keys(permDraft)]);
+    for (const k of keys) if (!!orig[k] !== !!permDraft[k]) return true;
+    return false;
+  })();
 
   const currentRole = roles.find(r => r.role === activeRole);
   const filtered = users.filter(u =>
@@ -320,9 +387,17 @@ export default function UsuariosPage() {
 
           {/* Permissões por cargo */}
           <div className="bg-white rounded-3xl border border-rose-50 shadow-sm p-6">
-            <div className="flex items-center gap-2 mb-5 pb-4 border-b border-rose-50">
-              <Info className="text-[#D14237]" size={20} />
-              <h3 className="font-lora font-bold text-[#5C1F2E]">Permissões por Cargo</h3>
+            <div className="flex items-center justify-between gap-2 mb-5 pb-4 border-b border-rose-50">
+              <div className="flex items-center gap-2">
+                <Info className="text-[#D14237]" size={20} />
+                <h3 className="font-lora font-bold text-[#5C1F2E]">Permissões por Cargo</h3>
+              </div>
+              <button
+                onClick={() => { setNewRoleName(""); setNewRoleIsAdmin(false); setRoleError(""); setShowCreateRole(true); }}
+                className="flex items-center gap-1 text-[11px] font-bold text-[#D14237] hover:bg-rose-50 px-2.5 py-1.5 rounded-lg transition-all"
+              >
+                <Plus size={13} /> Novo Cargo
+              </button>
             </div>
             <div className="flex flex-wrap gap-2 mb-5">
               {roles.map(r => (
@@ -370,7 +445,7 @@ export default function UsuariosPage() {
                   </>
                 )}
                 <button
-                  onClick={() => { if (confirm(`Deletar cargo "${activeRole}"?`)) deleteRole(activeRole); }}
+                  onClick={async () => { if (await confirmDialog({ message: `Deletar cargo "${activeRole}"?`, danger: true, confirmText: "Deletar" })) deleteRole(activeRole); }}
                   disabled={!!saving}
                   className="ml-auto p-1.5 text-rose-200 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                   title="Deletar cargo"
@@ -383,12 +458,11 @@ export default function UsuariosPage() {
             {currentRole && (
               <div className="space-y-2">
                 {PERMISSIONS.map(p => {
-                  const on = !!currentRole.permissions?.[p.id];
+                  const on = !!permDraft[p.id];
                   return (
                     <button
                       key={p.id}
-                      onClick={() => togglePerm(activeRole, p.id)}
-                      disabled={saving === "perm-" + activeRole}
+                      onClick={() => togglePermDraft(p.id)}
                       className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${on ? "bg-rose-50 border-[#D14237]/20" : "bg-white border-rose-50 opacity-60"}`}
                     >
                       <div className="flex items-center gap-2.5">
@@ -401,9 +475,48 @@ export default function UsuariosPage() {
                     </button>
                   );
                 })}
-                <p className="text-[10px] text-rose-300 italic flex items-center gap-1 pt-1">
-                  <AlertCircle size={10} /> Alterações salvas automaticamente.
-                </p>
+
+                {/* Atalhos marcar/desmarcar tudo */}
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    onClick={() => setPermDraft(Object.fromEntries(PERMISSIONS.map(p => [p.id, true])))}
+                    className="text-[10px] font-bold text-[#D14237] hover:underline"
+                  >
+                    Marcar tudo (admin)
+                  </button>
+                  <span className="text-rose-200">·</span>
+                  <button
+                    onClick={() => setPermDraft({})}
+                    className="text-[10px] font-bold text-rose-400 hover:underline"
+                  >
+                    Desmarcar tudo
+                  </button>
+                </div>
+
+                {/* Barra de salvar */}
+                <div className="flex items-center justify-between gap-2 pt-3 mt-2 border-t border-rose-50">
+                  <span className={`text-[10px] font-bold ${permDirty ? "text-[#D14237]" : "text-rose-300"}`}>
+                    {permDirty ? "● Alterações não salvas" : "Tudo salvo"}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {permDirty && (
+                      <button
+                        onClick={() => setPermDraft({ ...(currentRole.permissions ?? {}) })}
+                        className="px-3 py-2 rounded-xl text-xs font-dm font-bold text-rose-400 hover:bg-rose-50 transition-all"
+                      >
+                        Desfazer
+                      </button>
+                    )}
+                    <button
+                      onClick={savePermissions}
+                      disabled={!permDirty || saving === "perm-" + activeRole}
+                      className="flex items-center gap-1.5 bg-[#5C1F2E] hover:bg-[#4A1925] disabled:opacity-40 disabled:cursor-not-allowed text-white px-4 py-2 rounded-xl text-xs font-dm font-bold transition-all"
+                    >
+                      {saving === "perm-" + activeRole ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                      Salvar
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -487,6 +600,67 @@ export default function UsuariosPage() {
               >
                 {saving === "create" ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
                 Criar Usuário
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal criar cargo ── */}
+      {showCreateRole && (
+        <div className="fixed inset-0 bg-[#5C1F2E]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-7 py-5 border-b border-rose-50">
+              <h2 className="font-lora text-xl font-bold text-[#5C1F2E]">Novo Cargo</h2>
+              <button onClick={() => setShowCreateRole(false)}><X size={18} className="text-rose-300 hover:text-[#D14237]" /></button>
+            </div>
+            <div className="p-7 space-y-5">
+              <div>
+                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                  Nome do Cargo <span className="text-red-400">*</span>
+                </label>
+                <input
+                  autoFocus
+                  value={newRoleName}
+                  onChange={e => setNewRoleName(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") createRole(); }}
+                  placeholder="Ex: Vendedor, Financeiro..."
+                  className="w-full border border-rose-100 rounded-xl px-4 py-2.5 text-sm font-dm text-[#5C1F2E] focus:outline-none focus:border-[#5C1F2E] placeholder:text-rose-200"
+                />
+              </div>
+
+              <button
+                onClick={() => setNewRoleIsAdmin(v => !v)}
+                className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${newRoleIsAdmin ? "bg-rose-50 border-[#D14237]/30" : "bg-white border-rose-100"}`}
+              >
+                <div className="flex items-center gap-3 text-left">
+                  <ShieldCheck className={newRoleIsAdmin ? "text-[#D14237]" : "text-rose-200"} size={20} />
+                  <div>
+                    <p className="text-xs font-bold text-[#5C1F2E]">Administrador (acesso total)</p>
+                    <p className="text-[10px] text-rose-400 mt-0.5">Liga todas as permissões automaticamente.</p>
+                  </div>
+                </div>
+                <div className={`w-9 h-5 rounded-full relative transition-colors shrink-0 ${newRoleIsAdmin ? "bg-[#D14237]" : "bg-rose-100"}`}>
+                  <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${newRoleIsAdmin ? "left-5" : "left-1"}`} />
+                </div>
+              </button>
+
+              {!newRoleIsAdmin && (
+                <p className="text-[10px] text-rose-300 italic flex items-center gap-1">
+                  <AlertCircle size={10} /> O cargo começa só com &quot;Ver Dashboard&quot;. Ajuste as permissões depois de criar.
+                </p>
+              )}
+
+              {roleError && (
+                <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle size={12} />{roleError}</p>
+              )}
+              <button
+                onClick={createRole}
+                disabled={saving === "createrole"}
+                className="w-full bg-[#5C1F2E] hover:bg-[#4A1925] disabled:opacity-50 text-white py-3 rounded-xl font-dm font-bold text-sm flex items-center justify-center gap-2 transition-all"
+              >
+                {saving === "createrole" ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                Criar Cargo
               </button>
             </div>
           </div>

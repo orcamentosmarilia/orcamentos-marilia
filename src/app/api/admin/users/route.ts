@@ -9,16 +9,23 @@ function adminClient() {
   );
 }
 
-// GET /api/admin/users — lista todos os usuários
+// GET /api/admin/users — lista todos os usuários e cargos (service role, ignora RLS)
 export async function GET() {
   const supabase = adminClient();
-  const { data, error } = await supabase
-    .from('admin_users')
-    .select('id, name, email, role, whatsapp, photo_url, profile_completed')
-    .order('name');
+  const [usersRes, rolesRes] = await Promise.all([
+    supabase
+      .from('admin_users')
+      .select('id, name, email, role, whatsapp, photo_url, profile_completed')
+      .order('name'),
+    supabase
+      .from('role_settings')
+      .select('role, permissions')
+      .order('role'),
+  ]);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ users: data });
+  if (usersRes.error) return NextResponse.json({ error: usersRes.error.message }, { status: 500 });
+  if (rolesRes.error) return NextResponse.json({ error: rolesRes.error.message }, { status: 500 });
+  return NextResponse.json({ users: usersRes.data, roles: rolesRes.data });
 }
 
 // POST /api/admin/users
@@ -66,6 +73,38 @@ export async function POST(request: Request) {
       .from('admin_users')
       .update({ role })
       .eq('id', userId);
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  }
+
+  if (action === 'create_role') {
+    const { name, permissions } = body;
+    const trimmed = (name ?? '').trim();
+    if (!trimmed) return NextResponse.json({ error: 'Nome do cargo é obrigatório.' }, { status: 400 });
+
+    // Bloqueia nome duplicado ignorando maiúsculas/minúsculas (evita "admin" vs "Admin")
+    const { data: existingRoles } = await supabase.from('role_settings').select('role');
+    const dup = (existingRoles ?? []).find(r => r.role.toLowerCase() === trimmed.toLowerCase());
+    if (dup) return NextResponse.json({ error: `Já existe um cargo chamado "${dup.role}".` }, { status: 409 });
+
+    const { data, error } = await supabase
+      .from('role_settings')
+      .insert({ role: trimmed, permissions: permissions ?? {} })
+      .select('role, permissions')
+      .single();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ role: data });
+  }
+
+  if (action === 'update_permissions') {
+    const { role, permissions } = body;
+    if (!role) return NextResponse.json({ error: 'Cargo obrigatório.' }, { status: 400 });
+    const { error } = await supabase
+      .from('role_settings')
+      .update({ permissions: permissions ?? {} })
+      .eq('role', role);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ success: true });
