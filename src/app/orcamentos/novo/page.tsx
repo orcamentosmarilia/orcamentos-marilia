@@ -13,7 +13,14 @@ interface Service {
   category: string;
   pricing_type: string;
   is_tableware: boolean;
+  application_mode?: string; // 'selectable' (padrão) | 'auto_always' | 'auto_if_coffee' | 'auto_if_cold_drinks'
 }
+
+const AUTO_CONDITION_LABEL: Record<string, string> = {
+  auto_always: "Sempre",
+  auto_if_coffee: "Se há café",
+  auto_if_cold_drinks: "Se há água/suco/refri",
+};
 
 interface DrinkProduct {
   id: string;
@@ -499,26 +506,50 @@ export default function NovoOrcamento() {
                   </div>
                 ) : null;
               })()}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {availableServices.length === 0 ? (
-                  <p className="text-sm text-gray-400 col-span-2">Nenhum serviço cadastrado em Logística.</p>
-                ) : (
-                  availableServices.map(service => (
-                    <label key={service.id} className={`flex items-center gap-3 p-3 rounded-[10px] border cursor-pointer transition-colors ${formData.selectedServiceIds.includes(service.id) ? "bg-[var(--color-brand-pink)] border-[var(--color-brand-red)]" : "border-[var(--color-brand-pink2)] hover:bg-[var(--color-brand-pink)]"}`}>
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 accent-[var(--color-brand-red)]"
-                        checked={formData.selectedServiceIds.includes(service.id)}
-                        onChange={(e) => handleServiceChange(service.id, e.target.checked)}
-                      />
-                      <span className="text-sm font-medium text-[var(--color-brand-wine2)]">{service.name}</span>
-                      {service.is_tableware && (
-                        <span className="ml-auto text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded font-bold">louça</span>
+              {(() => {
+                const selectableServices = availableServices.filter(s => !s.application_mode || s.application_mode === "selectable");
+                const autoServices = availableServices.filter(s => s.application_mode && s.application_mode !== "selectable");
+                return (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {availableServices.length === 0 ? (
+                        <p className="text-sm text-gray-400 col-span-2">Nenhum serviço cadastrado em Logística.</p>
+                      ) : (
+                        selectableServices.map(service => (
+                          <label key={service.id} className={`flex items-center gap-3 p-3 rounded-[10px] border cursor-pointer transition-colors ${formData.selectedServiceIds.includes(service.id) ? "bg-[var(--color-brand-pink)] border-[var(--color-brand-red)]" : "border-[var(--color-brand-pink2)] hover:bg-[var(--color-brand-pink)]"}`}>
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 accent-[var(--color-brand-red)]"
+                              checked={formData.selectedServiceIds.includes(service.id)}
+                              onChange={(e) => handleServiceChange(service.id, e.target.checked)}
+                            />
+                            <span className="text-sm font-medium text-[var(--color-brand-wine2)]">{service.name}</span>
+                            {service.is_tableware && (
+                              <span className="ml-auto text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded font-bold">louça</span>
+                            )}
+                          </label>
+                        ))
                       )}
-                    </label>
-                  ))
-                )}
-              </div>
+                    </div>
+
+                    {autoServices.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-[var(--color-brand-pink2)]">
+                        <p className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-2">Incluídos automaticamente</p>
+                        <div className="flex flex-wrap gap-2">
+                          {autoServices.map(s => (
+                            <span key={s.id} className="inline-flex items-center gap-1.5 text-[11px] font-dm bg-[var(--color-brand-pink)] text-[var(--color-brand-wine)] border border-[var(--color-brand-pink2)] px-2.5 py-1 rounded-full">
+                              <span className="material-symbols-outlined text-[13px]">bolt</span>
+                              {s.name}
+                              <span className="text-[var(--color-brand-gray)]">· {AUTO_CONDITION_LABEL[s.application_mode!] || "automático"}</span>
+                            </span>
+                          ))}
+                        </div>
+                        <p className="text-[10px] text-[var(--color-brand-gray)] mt-2 italic">Calculados pelo sistema conforme o evento — não precisa marcar.</p>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </section>
 
             {/* Seção 4 - Cardápio */}
