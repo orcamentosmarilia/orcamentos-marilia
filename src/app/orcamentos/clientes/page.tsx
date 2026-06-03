@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { toast } from "@/components/Notify";
 import {
   Plus, Trash2, Loader2, X, Star, Search,
   Phone, Mail, Building2, User, ChevronDown, ChevronUp, UserPlus,
@@ -168,7 +169,16 @@ export default function ClientesPage() {
   }
 
   async function saveClient() {
-    if (!modal.client?.name?.trim()) return;
+    const c = modal.client;
+    if (!c?.name?.trim()) {
+      toast.error(c?.entity_type === "PJ" ? "Informe o nome da empresa." : "Informe o nome do cliente.");
+      return;
+    }
+    // Pessoa Jurídica: exige ao menos um responsável (quem realizou o pedido)
+    if (c.entity_type === "PJ" && !(c.contacts || []).some(ct => ct.name.trim())) {
+      toast.error("Para Pessoa Jurídica, cadastre o responsável pelo pedido em Contatos / Responsáveis.");
+      return;
+    }
     setSaving(true);
     try {
       const payload: any = { ...modal.client };
@@ -196,7 +206,7 @@ export default function ClientesPage() {
       setModal({ open: false, client: null, isNew: false });
       fetchAll();
     } catch (err: any) {
-      alert("Erro: " + err.message);
+      toast.error("Erro: " + err.message);
     } finally {
       setSaving(false);
     }
@@ -212,7 +222,7 @@ export default function ClientesPage() {
       setDeleteId(null);
       fetchAll();
     } catch (err: any) {
-      alert("Erro: " + err.message);
+      toast.error("Erro: " + err.message);
     } finally {
       setDeleting(false);
     }
@@ -242,7 +252,7 @@ export default function ClientesPage() {
               {/* Entity type */}
               <div className="flex gap-3">
                 {(["PF", "PJ"] as const).map(t => (
-                  <button key={t} type="button" onClick={() => updateField("entity_type", t)}
+                  <button key={t} type="button" onClick={() => { updateField("entity_type", t); if (t === "PJ" && (c.contacts || []).length === 0) addContact(); }}
                     className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-dm font-bold transition-all ${
                       c.entity_type === t ? "bg-[#5C1F2E] text-white border-[#5C1F2E]" : "bg-white text-rose-400 border-rose-100 hover:border-rose-300"
                     }`}>
@@ -254,8 +264,8 @@ export default function ClientesPage() {
 
               {/* Name */}
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Nome completo *" colSpan={2}>
-                  <input value={c.name || ""} onChange={e => updateField("name", e.target.value)} placeholder="Nome do cliente..." />
+                <Field label={c.entity_type === "PJ" ? "Nome da empresa *" : "Nome completo *"} colSpan={2}>
+                  <input value={c.name || ""} onChange={e => updateField("name", e.target.value)} placeholder={c.entity_type === "PJ" ? "Razão social / nome da empresa..." : "Nome do cliente..."} />
                 </Field>
 
                 <Field label={c.entity_type === "PJ" ? "CNPJ" : "CPF"}>
@@ -292,13 +302,17 @@ export default function ClientesPage() {
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-                    Contatos / Responsáveis
+                    Contatos / Responsáveis {c.entity_type === "PJ" && <span className="text-red-400">*</span>}
                   </label>
                   <button type="button" onClick={addContact}
                     className="flex items-center gap-1 text-[11px] font-dm font-bold text-[#5C1F2E] hover:text-[#D14237] transition-colors">
                     <Plus size={13} /> Adicionar contato
                   </button>
                 </div>
+
+                {c.entity_type === "PJ" && (
+                  <p className="text-[10px] text-rose-400 font-dm mb-2 -mt-1">Obrigatório: informe quem realizou o pedido pela empresa.</p>
+                )}
 
                 {(c.contacts || []).length === 0 ? (
                   <button type="button" onClick={addContact}
