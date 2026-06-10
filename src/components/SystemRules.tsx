@@ -157,6 +157,14 @@ export default function SystemRules() {
               <button onClick={() => setForm((p: any) => ({ ...p, skewer_options: [...(p.skewer_options || []), { value: `opt_${Date.now()}`, label: "", price: 0, qty_per_person: 1 }] }))} className="self-start text-[11px] font-bold text-[var(--color-brand-red)] flex items-center gap-1"><Plus size={13} /> Opção</button>
             </div>
           </div>
+          <div>
+            <label className={lbl}>Copo de vidro — palavras no nome do serviço</label>
+            <StrList items={form?.cup_replacements?.glass || []} onChange={v => setForm((p: any) => ({ ...p, cup_replacements: { ...(p.cup_replacements || {}), glass: v } }))} placeholder="Ex: vidro" />
+          </div>
+          <div>
+            <label className={lbl}>Xícara de porcelana — palavras no nome do serviço</label>
+            <StrList items={form?.cup_replacements?.porcelain || []} onChange={v => setForm((p: any) => ({ ...p, cup_replacements: { ...(p.cup_replacements || {}), porcelain: v } }))} placeholder="Ex: porcelana" />
+          </div>
         </div>
       </section>
 

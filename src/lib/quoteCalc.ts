@@ -104,16 +104,22 @@ export function computeAutoItems(rules: ItemRule[], ctx: ItemCtx): AccessoryLine
 export function calcularTotais(input: CalcInput, calcRules: any, modalidades: any[]) {
   const { guests, duration_hours, modalidade, inclui_doces, has_cafe, has_agua_suco_refri, has_glass_cup, has_porcelain_cup, material } = input;
 
+  // Parâmetros obrigatórios — sem fallback silencioso; falha claro se faltar.
+  if (!calcRules?.rounding || !calcRules?.accessories || !calcRules?.bolo
+    || !Array.isArray(calcRules?.consumption) || calcRules.consumption.length === 0) {
+    throw new Error("Parâmetros de cálculo incompletos. Configure em Configurações → Regras do Sistema.");
+  }
+
   // Consumo por duração
-  const consumption: { max_hours: number; units_per_person: number }[] = calcRules.consumption || [];
-  let unitsPerPerson = 10;
+  const consumption: { max_hours: number; units_per_person: number }[] = calcRules.consumption;
+  let unitsPerPerson = consumption[consumption.length - 1].units_per_person;
   for (const entry of consumption) {
     if (duration_hours <= entry.max_hours) { unitsPerPerson = entry.units_per_person; break; }
   }
   const totalUnitsRaw = unitsPerPerson * guests;
 
   // Arredondamento
-  const foodMultiple: number = calcRules.rounding?.food_multiple ?? 25;
+  const foodMultiple: number = calcRules.rounding.food_multiple;
   const lower = Math.floor(totalUnitsRaw / foodMultiple) * foodMultiple;
   const upper = lower + foodMultiple;
   const totalUnits = (totalUnitsRaw - lower) >= (upper - totalUnitsRaw) ? upper : lower;
@@ -126,46 +132,46 @@ export function calcularTotais(input: CalcInput, calcRules: any, modalidades: an
   const elaboradoUnits = totalUnits - economicoUnits;
 
   // Regra 6: bolo
-  const bf = calcRules.bolo ?? { guests_per_large: 50, extra_small_min: 13, extra_small_max: 37, extra_large_min: 38 };
+  const bf = calcRules.bolo;
   const nGrandes = Math.floor(guests / bf.guests_per_large);
   const resto = guests - nGrandes * bf.guests_per_large;
   let extraBoloSize = '';
-  if (resto >= bf.extra_large_min) extraBoloSize = 'grande (1300g)';
-  else if (resto >= bf.extra_small_min) extraBoloSize = 'pequeno (650g)';
+  if (resto >= bf.extra_large_min) extraBoloSize = `${bf.large_label} (${bf.large_weight})`;
+  else if (resto >= bf.extra_small_min) extraBoloSize = `${bf.small_label} (${bf.small_weight})`;
   const extraBolos = extraBoloSize ? 1 : 0;
   const totalBolos = nGrandes + extraBolos;
 
-  // Acessórios
-  const ac = calcRules.accessories ?? {};
+  // Acessórios — todos os parâmetros vêm de calcRules (sem fallback).
+  const ac = calcRules.accessories;
   const accessories: AccessoryLine[] = [];
 
-  const vasilhameQty = Math.ceil(totalUnits / (ac.vasilhame_per_units ?? 100)) + totalBolos;
-  accessories.push({ item: 'Vasilhame', quantity: vasilhameQty, unit: 'unidade', unit_price: ac.vasilhame_price ?? 15 });
+  const vasilhameQty = Math.ceil(totalUnits / ac.vasilhame_per_units) + totalBolos;
+  accessories.push({ item: 'Vasilhame', quantity: vasilhameQty, unit: 'unidade', unit_price: ac.vasilhame_price });
 
   if (has_cafe) {
     // Copos de isopor: omitir se xícara de porcelana foi selecionada
     if (!has_porcelain_cup) {
-      const isopQty = Math.round((ac.isopor_per_person ?? 1) * guests);
-      accessories.push({ item: 'Copos isopor', quantity: isopQty, unit: 'unidade', unit_price: ac.isopor_price ?? 0.35, rule: `${ac.isopor_per_person ?? 1}/pessoa` });
+      const isopQty = Math.round(ac.isopor_per_person * guests);
+      accessories.push({ item: 'Copos isopor', quantity: isopQty, unit: 'unidade', unit_price: ac.isopor_price, rule: `${ac.isopor_per_person}/pessoa` });
     }
-    accessories.push({ item: 'Pazinha', quantity: 1, unit: 'unidade', unit_price: ac.pazinha_price ?? 0.15, rule: '1 por evento' });
-    const sachetQty = Math.ceil((ac.sachet_ratio ?? 0.5) * guests);
-    accessories.push({ item: 'Sachê açúcar', quantity: sachetQty, unit: 'unidade', unit_price: ac.sachet_price ?? 0.15, rule: `${ac.sachet_ratio ?? 0.5}/pessoa` });
-    accessories.push({ item: 'Sachê adoçante', quantity: sachetQty, unit: 'unidade', unit_price: ac.sachet_price ?? 0.15, rule: `${ac.sachet_ratio ?? 0.5}/pessoa` });
+    accessories.push({ item: 'Pazinha', quantity: 1, unit: 'unidade', unit_price: ac.pazinha_price, rule: '1 por evento' });
+    const sachetQty = Math.ceil(ac.sachet_ratio * guests);
+    accessories.push({ item: 'Sachê açúcar', quantity: sachetQty, unit: 'unidade', unit_price: ac.sachet_price, rule: `${ac.sachet_ratio}/pessoa` });
+    accessories.push({ item: 'Sachê adoçante', quantity: sachetQty, unit: 'unidade', unit_price: ac.sachet_price, rule: `${ac.sachet_ratio}/pessoa` });
   }
 
   // Copos plásticos: omitir se copo de vidro foi selecionado
   if (has_agua_suco_refri && !has_glass_cup && material === 'Descartável') {
-    const rawCopos = (ac.copo_per_person ?? 2) * guests;
-    const coposMultiple = calcRules.rounding?.copos_multiple ?? 50;
+    const rawCopos = ac.copo_per_person * guests;
+    const coposMultiple = calcRules.rounding.copos_multiple;
     const coposQty = Math.floor(rawCopos / coposMultiple) * coposMultiple;
-    accessories.push({ item: 'Copos plásticos 300ml', quantity: coposQty, unit: 'unidade', unit_price: ac.copo_price ?? 0.40, rule: `${ac.copo_per_person ?? 2}/pessoa, arredondar PARA BAIXO ao múltiplo de ${coposMultiple}` });
+    accessories.push({ item: 'Copos plásticos 300ml', quantity: coposQty, unit: 'unidade', unit_price: ac.copo_price, rule: `${ac.copo_per_person}/pessoa, arredondar PARA BAIXO ao múltiplo de ${coposMultiple}` });
   }
 
-  const rawGuardanapos = (ac.guardanapo_per_person ?? 4) * guests;
-  const guardaMultiple = calcRules.rounding?.guardanapos_multiple ?? 100;
+  const rawGuardanapos = ac.guardanapo_per_person * guests;
+  const guardaMultiple = calcRules.rounding.guardanapos_multiple;
   const guardanapQty = Math.floor(rawGuardanapos / guardaMultiple) * guardaMultiple;
-  accessories.push({ item: 'Guardanapos', quantity: guardanapQty, unit: 'unidade', unit_price: ac.guardanapo_price ?? 0.10, rule: `${ac.guardanapo_per_person ?? 4}/pessoa, arredondar PARA BAIXO ao múltiplo de ${guardaMultiple}` });
+  accessories.push({ item: 'Guardanapos', quantity: guardanapQty, unit: 'unidade', unit_price: ac.guardanapo_price, rule: `${ac.guardanapo_per_person}/pessoa, arredondar PARA BAIXO ao múltiplo de ${guardaMultiple}` });
 
   return {
     guests,

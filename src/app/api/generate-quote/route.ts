@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { calcularTotais } from '@/lib/quoteCalc';
 import { z } from 'zod';
 
-function buildAIPrompt(modalidades: any[], composition: any | null, globalPrompt: string | null, rules: any[]): string {
+function buildAIPrompt(modalidades: any[], composition: any | null, globalPrompt: string | null, rules: any[], exclusions: string[]): string {
   const modalBlock = modalidades.map(m => {
     const eco = Math.round(((m.tier_split?.Econômico) ?? 1) * 100);
     const ela = Math.round(((m.tier_split?.Elaborado) ?? 0) * 100);
@@ -30,29 +30,24 @@ function buildAIPrompt(modalidades: any[], composition: any | null, globalPrompt
     ? activeRules.map((r: any, i: number) => `${i + 1}. **${r.title}**: ${r.text}`).join('\n')
     : '';
 
+  const exclBlock = (exclusions || []).length > 0
+    ? `## NÃO INCLUA NO CARDÁPIO\nEstes itens são serviços externos já calculados — nunca os inclua: ${exclusions.join(', ')}.`
+    : '';
+
   return [
     SYSTEM_PROMPT_HEADER,
     modalBlock ? `## MODALIDADES\n${modalBlock}` : '',
     compLines ? `## COMPOSIÇÃO MÍNIMA\n${compLines}` : '',
     rulesBlock ? `## REGRAS DE NEGÓCIO\n${rulesBlock}` : '',
+    exclBlock,
     globalPrompt ? `## INSTRUÇÕES ADICIONAIS DO ADMIN\n${globalPrompt}` : '',
     SYSTEM_PROMPT_FOOTER,
   ].filter(Boolean).join('\n\n');
 }
 
-const DRINK_PRODUCT_MAP_DEFAULT: Record<string, string> = {
-  cafe:             'Café Expresso',
-  agua:             'Água Mineral 1,5L',
-  refrigerante:     'Coca-Cola 2L',
-  suco_natural:     'Suco Laranja 500ml',
-  agua_gas:         'Água Gasosa 500ml',
-  suco_tetrapak:    'Suco Tetra Pack 1L',
-  leite:            'Leite',
-  cha:              'Chá',
-  chocolate_quente: 'Chocolate Quente',
-};
-
-function calcDrinkQty(product: { unit: string; description: string }, guests: number): number {
+// Quantidade de bebida: prioriza "N ml por pessoa" na descrição do produto;
+// senão usa a regra configurada (1 a cada `guestsPerUnit` pessoas).
+function calcDrinkQty(product: { unit: string; description: string }, guests: number, guestsPerUnit: number): number {
   const mlPerPersonMatch = product.description?.match(/(\d+)\s*ml\s*por\s*pessoa/i);
   if (mlPerPersonMatch) {
     const mlPerPerson = parseInt(mlPerPersonMatch[1]);
@@ -63,7 +58,7 @@ function calcDrinkQty(product: { unit: string; description: string }, guests: nu
       : mlMatch ? parseInt(mlMatch[1]) : 0;
     if (unitMl > 0) return Math.max(1, Math.ceil((mlPerPerson * guests) / unitMl));
   }
-  return Math.max(1, Math.ceil(guests / 10));
+  return Math.max(1, Math.ceil(guests / (guestsPerUnit || 10)));
 }
 
 const SYSTEM_PROMPT_HEADER = `Você é o gerador de orçamentos da Pastelaria Marília de Dirceu.
@@ -77,9 +72,7 @@ PASSO 4 — Retorne o JSON final.
 As quantidades retornadas por calcular_totais são definitivas — não arredonde, não ajuste.
 Não invente preços — use sempre o retorno de buscar_produtos.`;
 
-const SYSTEM_PROMPT_FOOTER = `NÃO inclua na lista: garçom, louça (aluguel), aparador, jarra, gelo, frete — esses são serviços externos já calculados.
-
-## FORMATO DE SAÍDA
+const SYSTEM_PROMPT_FOOTER = `## FORMATO DE SAÍDA
 Retorne SOMENTE um JSON válido, sem markdown, sem texto extra:
 {
   "items": [
@@ -109,7 +102,7 @@ export async function POST(request: Request) {
     let materialType = formData.material || 'Descartável';
 
     // 1. Fetch all settings from DB (single source of truth — nada hardcoded)
-    const [{ data: configs }, { data: calcRulesData }, { data: modalidadeData }, { data: compositionData }, { data: drinkMappingsData }, { data: businessRulesData }, { data: categoriesData }] = await Promise.all([
+    const [{ data: configs }, { data: calcRulesData }, { data: modalidadeData }, { data: compositionData }, { data: drinkMappingsData }, { data: businessRulesData }, { data: categoriesData }, { data: formCfgData }, { data: aiExclData }] = await Promise.all([
       supabase.from('system_config').select('key, value'),
       supabase.from('settings').select('value').eq('key', 'calculation_rules').single(),
       supabase.from('settings').select('value').eq('key', 'modalidade_config').single(),
@@ -118,6 +111,8 @@ export async function POST(request: Request) {
       supabase.from('settings').select('value').eq('key', 'business_rules').single(),
       // Categorias reais do catálogo — fonte única da verdade (nada chumbado no código)
       supabase.from('product_categories').select('name').order('name'),
+      supabase.from('settings').select('value').eq('key', 'quote_form_config').single(),
+      supabase.from('settings').select('value').eq('key', 'ai_exclusions').single(),
     ]);
 
     // Lista dinâmica de categorias existentes para orientar a IA (sem nomes fixos no código)
@@ -137,12 +132,24 @@ export async function POST(request: Request) {
     const calcRules = calcRulesData.value as any;
     const modalidades = (modalidadeData.value as any).modalidades as any[];
     const composition = compositionData?.value as any ?? null;
+    const formCfg = (formCfgData?.value as any) ?? {};
+    const aiExclusions: string[] = Array.isArray(aiExclData?.value) ? aiExclData.value : [];
 
-    const drinkMappingsArr: { id: string; label: string; productName: string }[] =
-      Array.isArray(drinkMappingsData?.value) ? drinkMappingsData.value : [];
-    const DRINK_PRODUCT_MAP: Record<string, string> = drinkMappingsArr.length > 0
-      ? Object.fromEntries(drinkMappingsArr.map(d => [d.id, d.productName]))
-      : DRINK_PRODUCT_MAP_DEFAULT;
+    // Mapa de bebidas — fonte única no banco (sem fallback chumbado).
+    const drinkMappingsArr: any[] = Array.isArray(drinkMappingsData?.value) ? drinkMappingsData.value : [];
+    const DRINK_PRODUCT_MAP: Record<string, string> = Object.fromEntries(drinkMappingsArr.map(d => [d.id, d.productName]));
+    // Por nome do produto: regra de quantidade (1 a cada N pessoas).
+    const drinkQtyByName: Record<string, number> = Object.fromEntries(
+      drinkMappingsArr.filter(d => d.productName).map(d => [d.productName, d.guests_per_unit || 10])
+    );
+    // Conjuntos de ids que disparam café / bebida fria (antes listas chumbadas).
+    const coffeeDrinkIds = new Set(drinkMappingsArr.filter(d => d.counts_as_coffee).map(d => d.id));
+    const coldDrinkIds = new Set(drinkMappingsArr.filter(d => d.counts_as_cold_drink).map(d => d.id));
+
+    // Valores válidos dinâmicos (sem enums chumbados no schema do tool).
+    const modalidadeNames: string[] = modalidades.map((m: any) => m.name);
+    const tierNames: string[] = Array.from(new Set(modalidades.flatMap((m: any) => Object.keys(m.tier_split || {}))));
+    const materialNames: string[] = Array.isArray(formCfg.materials) && formCfg.materials.length > 0 ? formCfg.materials : ['Descartável', 'Louça'];
 
     const configMap: Record<string, string> = configs?.reduce((acc: any, curr: any) => {
       acc[curr.key] = curr.value;
@@ -157,7 +164,7 @@ export async function POST(request: Request) {
     const businessRules: any[] = Array.isArray(businessRulesData?.value) ? businessRulesData.value : [];
 
     // Build system prompt automatically from structured DB settings
-    const GENERATION_SYSTEM_PROMPT = buildAIPrompt(modalidades, composition, globalPrompt, businessRules);
+    const GENERATION_SYSTEM_PROMPT = buildAIPrompt(modalidades, composition, globalPrompt, businessRules, aiExclusions);
 
     // 2. Fetch Selected Services & Calculate Deterministic Prices
     let calculatedServices: any[] = [];
@@ -170,9 +177,13 @@ export async function POST(request: Request) {
       if (servicesData) {
         hasTableware = servicesData.some(srv => srv.is_tableware === true);
         if (hasTableware) materialType = 'Louça';
-        // Detect cup replacements by service name
-        hasGlassCup = servicesData.some(srv => /vidro/i.test(srv.name || ''));
-        hasPorcelainCup = servicesData.some(srv => /porcel|xícar|xicar/i.test(srv.name || ''));
+        // Substituição de copos — palavras-chave configuráveis (quote_form_config.cup_replacements).
+        const cupCfg = formCfg.cup_replacements || {};
+        const glassKw: string[] = Array.isArray(cupCfg.glass) ? cupCfg.glass : [];
+        const porcelainKw: string[] = Array.isArray(cupCfg.porcelain) ? cupCfg.porcelain : [];
+        const nameMatches = (name: string, kws: string[]) => kws.some(k => name.toLowerCase().includes(k.toLowerCase()));
+        hasGlassCup = servicesData.some(srv => nameMatches(srv.name || '', glassKw));
+        hasPorcelainCup = servicesData.some(srv => nameMatches(srv.name || '', porcelainKw));
 
         servicesData.forEach(srv => {
           let quantity = 1;
@@ -264,7 +275,7 @@ export async function POST(request: Request) {
           .in('name', drinkNames)
           .eq('is_active', true);
         (drinkData || []).forEach((p: any) => {
-          const qty = calcDrinkQty(p, guests);
+          const qty = calcDrinkQty(p, guests, drinkQtyByName[p.name]);
           calculatedServices.push({
             description: p.name,
             quantity: qty,
@@ -352,15 +363,15 @@ export async function POST(request: Request) {
       throw new Error(`Provedor ${provider} não suportado.`);
     }
 
-    // 7. Build User Prompt
-    const hasCafe = (formData.drinks || []).includes('cafe');
-    const hasAguaSucoRefri = (formData.drinks || []).some((d: string) => ['agua', 'suco_natural', 'refrigerante', 'suco_tetrapak', 'agua_gas'].includes(d));
+    // 7. Build User Prompt — café/bebida fria derivados das flags do banco.
+    const hasCafe = (formData.drinks || []).some((d: string) => coffeeDrinkIds.has(d));
+    const hasAguaSucoRefri = (formData.drinks || []).some((d: string) => coldDrinkIds.has(d));
 
-    const espetoDesc = espeto === '3frutas'
-      ? 'Mini Espeto Fruta 3 sabores (1 por pessoa)'
-      : espeto === '4frutas'
-        ? 'Espeto Fruta 4 sabores (1 por pessoa)'
-        : 'Não';
+    // Espeto — descrição vem das opções configuradas (quote_form_config.skewer_options).
+    const espetoOpt = (formCfg.skewer_options || []).find((o: any) => o.value === espeto);
+    const espetoDesc = (!espetoOpt || espetoOpt.value === 'nao' || !espetoOpt.qty_per_person)
+      ? 'Não'
+      : `${espetoOpt.label} (${espetoOpt.qty_per_person} por pessoa)`;
 
     const drinkNames = (formData.drinks || [])
       .map((id: string) => DRINK_PRODUCT_MAP[id])
@@ -415,14 +426,14 @@ Retorne apenas o JSON.`;
           inputSchema: zodSchema(z.object({
             guests: z.number().describe('Número de convidados'),
             duration_hours: z.number().describe('Duração do evento em horas'),
-            modalidade: z.enum(['Econômico', 'Meio Termo', 'Elaborado']).describe('Modalidade do cardápio selecionada pelo cliente'),
+            modalidade: z.string().describe(`Modalidade do cardápio selecionada pelo cliente. Valores válidos: ${modalidadeNames.join(', ')}.`),
             inclui_doces: z.boolean().describe('Se o cardápio inclui doces'),
             has_cafe: z.boolean().describe('Se há café nas bebidas do evento'),
             has_agua_suco_refri: z.boolean().describe('Se há água, suco ou refrigerante nas bebidas do evento'),
             has_tableware: z.boolean().describe('Se o cliente optou por serviço de louça'),
             has_glass_cup: z.boolean().describe('Se o serviço "Copo de vidro" foi selecionado — substitui copos plásticos'),
             has_porcelain_cup: z.boolean().describe('Se o serviço "Xícara de porcelana" foi selecionado — substitui copos de isopor do café'),
-            material: z.enum(['Descartável', 'Louça']).describe('Tipo de material para copos e descartáveis'),
+            material: z.string().describe(`Tipo de material para copos e descartáveis. Valores válidos: ${materialNames.join(', ')}.`),
           })),
           execute: async (input) => {
             // Cálculo determinístico extraído para função pura testável (mesmo comportamento)
@@ -434,7 +445,7 @@ Retorne apenas o JSON.`;
           description: 'Busca produtos e preços atualizados do catálogo. Use tier para filtrar por modalidade econômica/elaborada.',
           inputSchema: zodSchema(z.object({
             categoria: z.string().optional().describe(categoriaDescricao),
-            tier: z.enum(['Econômico', 'Elaborado']).optional().describe('Modalidade: "Econômico" = produtos econômicos, "Elaborado" = produtos elaborados. Omita para trazer de ambas as modalidades.'),
+            tier: z.string().optional().describe(`Tier de produto para filtrar. Valores válidos: ${tierNames.join(', ')}. Omita para trazer de todos os tiers.`),
           })),
           execute: async (input) => {
             const { categoria, tier } = input;

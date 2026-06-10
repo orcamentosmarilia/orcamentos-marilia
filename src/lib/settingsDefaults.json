@@ -83,7 +83,11 @@
       { "value": "nao", "label": "Não", "price": 0, "qty_per_person": 0 },
       { "value": "3frutas", "label": "Mini Espeto — 3 frutas", "price": 3.5, "qty_per_person": 1 },
       { "value": "4frutas", "label": "Espeto — 4 frutas", "price": 4.5, "qty_per_person": 1 }
-    ]
+    ],
+    "cup_replacements": {
+      "glass": ["vidro"],
+      "porcelain": ["porcel", "xícar", "xicar"]
+    }
   },
   "status_config": [
     { "id": "rascunho", "label": "Rascunho", "color": "#9E9E9E", "isTerminal": false },
