@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { toast, confirmDialog } from "@/components/Notify";
 import SystemRules from "@/components/SystemRules";
+import ProductDependencies from "@/components/ProductDependencies";
 
 interface ConfigState {
   ai_provider: string;
@@ -508,6 +509,9 @@ export default function SettingsPage() {
 
         {/* REGRAS DO SISTEMA — todas as regras de cálculo, seleções e exibição */}
         <SystemRules />
+
+        {/* DEPENDÊNCIAS DE PRODUTOS — acessórios, itens dependentes e bolo */}
+        <ProductDependencies />
 
         {/* REGRAS DE NEGÓCIO */}
         <section className="bg-white rounded-3xl shadow-sm border border-[var(--color-brand-pink2)] p-8">
