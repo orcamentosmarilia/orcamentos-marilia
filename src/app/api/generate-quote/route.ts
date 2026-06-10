@@ -220,6 +220,7 @@ export async function POST(request: Request) {
             extra_price: effectiveExtraPrice,
             pricing_type: srv.pricing_type,
             is_service: true,
+            item_type: 'service',
           });
         });
       }
@@ -235,6 +236,7 @@ export async function POST(request: Request) {
         unit: 'entrega',
         unit_price: deliveryFee,
         is_service: true,
+        item_type: 'fee',
       });
 
       if (hasTableware) {
@@ -244,6 +246,7 @@ export async function POST(request: Request) {
           unit: 'retorno',
           unit_price: deliveryFee,
           is_service: true,
+          item_type: 'fee',
         });
       }
     }
@@ -269,6 +272,7 @@ export async function POST(request: Request) {
             unit_price: p.unit_price,
             product_id: p.id,
             is_service: false,
+            item_type: 'beverage',
           });
         });
       }
@@ -321,6 +325,8 @@ export async function POST(request: Request) {
             quantity: srv.quantity,
             unit: srv.unit,
             unit_price: srv.unit_price,
+            item_type: srv.item_type ?? 'service',
+            product_id: srv.product_id ?? null,
           }))
         );
       }
@@ -499,16 +505,18 @@ Retorne apenas o JSON.`;
         quantity: srv.quantity,
         unit: srv.unit,
         unit_price: srv.unit_price,
+        item_type: srv.item_type ?? 'service',
+        product_id: srv.product_id ?? null,
       })),
       ...(suggestedItems.items || []).map((item: any) => {
         // Computed accessories bypass product matching
         if (isComputed(item.description)) {
-          return { quote_id: quote.id, description: item.description, quantity: item.quantity, unit: item.unit, unit_price: item.unit_price };
+          return { quote_id: quote.id, description: item.description, quantity: item.quantity, unit: item.unit, unit_price: item.unit_price, item_type: 'accessory', product_id: null };
         }
         // Match against real DB products
         const match = findProduct(item.description);
         if (match) {
-          return { quote_id: quote.id, product_id: match.id, description: match.name, quantity: item.quantity, unit: match.unit, unit_price: match.unit_price };
+          return { quote_id: quote.id, product_id: match.id, description: match.name, quantity: item.quantity, unit: match.unit, unit_price: match.unit_price, item_type: 'food' };
         }
         // No match found — skip this item (AI hallucinated a product not in DB)
         console.warn('Produto não encontrado no catálogo, ignorado:', item.description);

@@ -5,6 +5,10 @@ import { CheckCircle, Download, Loader2, Users, Clock, Calendar, Info, ChevronRi
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "@/components/Notify";
+import {
+  groupItems, lineTotal, isPercentItem, itemIcon,
+  computeQuoteTotals, computeSectionBreakdown,
+} from "@/lib/itemClassification";
 
 export default function PublicProposalPage() {
   const params = useParams();
@@ -150,91 +154,16 @@ export default function PublicProposalPage() {
 
   if (!quote) return <div className="min-h-screen flex items-center justify-center font-lora text-[#5C1F2E]">Proposta não encontrada.</div>;
 
-  const subtotalNonPercent = items
-    .filter(i => !i.unit?.toLowerCase().includes("%"))
-    .reduce((acc, i) => {
-      return acc + (Number(i.quantity) * Number(i.unit_price));
-    }, 0);
-
-  const grandTotal = items.reduce((acc, i) => {
-    const isPercent = i.unit?.toLowerCase().includes("%");
-    if (isPercent) {
-      return acc + (subtotalNonPercent * (Number(i.unit_price) / 100) * Number(i.quantity));
-    }
-    return acc + (Number(i.quantity) * Number(i.unit_price));
-  }, 0);
-
-  const foodTotal = items.filter(i => 
-    !i.unit?.toLowerCase().includes("%") &&
-    !i.description.toLowerCase().includes("entrega") && 
-    !i.description.toLowerCase().includes("frete") && 
-    !i.description.toLowerCase().includes("garçom") && 
-    !i.description.toLowerCase().includes("mobiliário") &&
-    !i.description.toLowerCase().includes("serviço")
-  ).reduce((acc, i) => {
-    const isMultipleOf25 = i.description?.toLowerCase().includes("salgado") || i.unit?.toLowerCase().includes("25");
-    return acc + (isMultipleOf25 ? (Number(i.quantity) / 25) * Number(i.unit_price) : Number(i.quantity) * Number(i.unit_price));
-  }, 0);
-
-  const logisticsTotal = items.filter(i => 
-    i.description.toLowerCase().includes("entrega") || 
-    i.description.toLowerCase().includes("frete") || 
-    i.description.toLowerCase().includes("garçom") || 
-    i.description.toLowerCase().includes("mobiliário") ||
-    i.description.toLowerCase().includes("serviço")
-  ).reduce((acc, i) => {
-    const isPercent = i.unit?.toLowerCase().includes("%");
-    const itemValue = isPercent
-      ? (subtotalNonPercent * (Number(i.unit_price) / 100) * Number(i.quantity))
-      : (Number(i.quantity) * Number(i.unit_price));
-    return acc + itemValue;
-  }, 0);
-
-  const taxesTotal = grandTotal - (foodTotal + logisticsTotal);
+  // Totais e detalhamento — fonte única (lib/itemClassification), igual em todas as telas.
+  const { subtotalNonPercent, grandTotal } = computeQuoteTotals(items);
+  const { food: foodTotal, delivery: logisticsTotal, services: taxesTotal } = computeSectionBreakdown(items);
 
   const formatCurrency = (val: number) => {
     return val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
-  // Agrupa e ordena os itens seguindo a MESMA hierarquia de categorias do orçamento
-  const hierarchy: any[] = Array.isArray(categoryHierarchy) ? categoryHierarchy : [];
-  const catToGroup: Record<string, string> = {};
-  const groupOrder: string[] = [];
-  for (const g of hierarchy) {
-    if (g && typeof g === "object" && Array.isArray(g.subcategories)) {
-      groupOrder.push(g.label);
-      for (const sub of g.subcategories) catToGroup[sub] = g.label;
-    }
-  }
-  const LOGISTICS_GROUP = "Logística e Serviços";
-  const OTHER_GROUP = "Outros itens";
-
-  const groupForItem = (item: any): string => {
-    const desc = (item.description || "").toLowerCase();
-    const productCat = item.products?.category;
-    const isLogistics =
-      item.item_type === "service" ||
-      desc.includes("garçom") || desc.includes("louça") ||
-      desc.includes("serviço") || desc.includes("entrega") || desc.includes("frete") ||
-      productCat === "Logística";
-    if (isLogistics) return LOGISTICS_GROUP;
-    if (productCat && catToGroup[productCat]) return catToGroup[productCat];
-    return OTHER_GROUP;
-  };
-
-  const groupedItems = items.reduce((acc: any, item) => {
-    const cat = groupForItem(item);
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(item);
-    return acc;
-  }, {});
-
-  // Ordem: grupos da hierarquia (com itens) → Logística/Serviços → Outros
-  const displayCategories = [
-    ...groupOrder.filter(g => groupedItems[g]?.length),
-    ...(groupedItems[LOGISTICS_GROUP]?.length ? [LOGISTICS_GROUP] : []),
-    ...(groupedItems[OTHER_GROUP]?.length ? [OTHER_GROUP] : []),
-  ];
+  // Agrupa e ordena os itens pela MESMA classificação usada nas demais telas.
+  const { order: displayCategories, groups: groupedItems } = groupItems(items, categoryHierarchy);
 
   return (
     <div className="min-h-screen bg-[#FDF6F2] text-[#6B5C5A] font-['DM_Sans',sans-serif] selection:bg-[#D14237] selection:text-white">
@@ -371,22 +300,10 @@ export default function PublicProposalPage() {
 
                       <div className="space-y-4">
                         {catItems.map((item: any, idx: number) => {
-                          const isPercent = item.unit?.toLowerCase().includes("%");
                           const prodCat = item.products?.category;
-                          const isMultipleOf25 = !!item.products?.is_multiple_of_25;
-                          
-                          const itemTotalValue = isPercent
-                            ? (subtotalNonPercent * (Number(item.unit_price) / 100) * Number(item.quantity))
-                            : (Number(item.quantity) * Number(item.unit_price));
-
-                          // If it's a multiple of 25 but the quantity is very small (like 4 in the screenshot),
-                          // it's likely the user meant 4 trays. But we've now forced the editor to use 25-multiples.
-                          // For display, we show the quantity stored.
-                          const displayQty = isPercent ? "Taxa Única" : `${item.quantity} un`;
-
-                          const fallbackIcon = item.description.toLowerCase().includes('garçom')
-                            ? 'groups'
-                            : (catName === LOGISTICS_GROUP ? 'local_shipping' : 'restaurant');
+                          const itemTotalValue = lineTotal(item, subtotalNonPercent);
+                          const displayQty = isPercentItem(item) ? "Taxa Única" : `${item.quantity} un`;
+                          const fallbackIcon = itemIcon(item);
 
                           return (
                             <div key={idx} className="bg-white hover:bg-[#FAE8E6]/10 p-8 rounded-[24px] flex items-center gap-10 transition-all group item-card print:border-b print:border-[#F5D8D5] print:rounded-none">

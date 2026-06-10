@@ -5,6 +5,9 @@ import { CheckCircle, XCircle, Download, Loader2, Users, Clock, Calendar, Info, 
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "@/components/Notify";
+import {
+  lineTotal, itemIcon, computeQuoteTotals, computeSectionBreakdown,
+} from "@/lib/itemClassification";
 
 export default function VisualizacaoProposta() {
   const params = useParams();
@@ -67,7 +70,7 @@ export default function VisualizacaoProposta() {
       setLoading(true);
       const { data, error } = await supabase
         .from("quotes")
-        .select("*, quote_items(*)")
+        .select("*, quote_items(*, products(*))")
         .eq("id", quoteId)
         .single();
       
@@ -149,17 +152,9 @@ export default function VisualizacaoProposta() {
   const validUntil = new Date(quote.created_at);
   validUntil.setDate(validUntil.getDate() + 15); // Valid for 15 days as per design
 
-  const grandTotal = items.reduce((acc, i) => {
-    const isMultipleOf25 = i.description?.toLowerCase().includes("salgado") || i.unit?.toLowerCase().includes("25");
-    const itemTotal = isMultipleOf25 
-      ? (Number(i.quantity) / 25) * Number(i.unit_price)
-      : Number(i.quantity) * Number(i.unit_price);
-    return acc + itemTotal;
-  }, 0);
-
-  // Split items for layout
-  const foodItems = items.filter(i => !i.description.toLowerCase().includes("equipe") && !i.description.toLowerCase().includes("taxa") && !i.description.toLowerCase().includes("mobiliário"));
-  const logisticsItems = items.filter(i => i.description.toLowerCase().includes("equipe") || i.description.toLowerCase().includes("taxa") || i.description.toLowerCase().includes("mobiliário"));
+  // Totais e detalhamento — fonte única (lib/itemClassification), igual à proposta pública.
+  const { subtotalNonPercent, grandTotal } = computeQuoteTotals(items);
+  const { food: foodTotal, delivery: deliveryTotal, services: servicesTotal } = computeSectionBreakdown(items);
 
   return (
     <div className="min-h-screen bg-[#FDFBF9] text-[#3D1320] font-dm flex flex-col items-center pb-20">
@@ -225,14 +220,7 @@ export default function VisualizacaoProposta() {
 
             <div className="flex flex-col gap-4">
               {items.map((item, idx) => {
-                const isService = item.description?.toLowerCase().includes("equipe") || item.description?.toLowerCase().includes("serviço");
-                const isLogistics = item.description?.toLowerCase().includes("taxa") || item.description?.toLowerCase().includes("entrega");
-                const isFurniture = item.description?.toLowerCase().includes("mobiliário") || item.description?.toLowerCase().includes("utensílios");
-                
-                let icon = "bakery_dining";
-                if (isService) icon = "groups";
-                if (isLogistics) icon = "local_shipping";
-                if (isFurniture) icon = "restaurant";
+                const icon = itemIcon(item);
 
                 return (
                   <div key={idx} className="bg-white p-6 rounded-3xl border border-[#F0E5E2] flex items-center gap-6 shadow-sm hover:shadow-md transition-shadow">
@@ -249,7 +237,7 @@ export default function VisualizacaoProposta() {
                     </div>
                     <div className="text-right border-l border-[#F0E5E2] pl-8 flex flex-col items-end gap-1">
                       <span className="text-[10px] font-bold text-[#A38E88] uppercase tracking-widest">VALOR</span>
-                      <span className="font-lora text-xl font-bold text-[#3D1320]">R$ {item.unit_price.toFixed(2).replace(".", ",")}</span>
+                      <span className="font-lora text-xl font-bold text-[#3D1320]">R$ {lineTotal(item, subtotalNonPercent).toFixed(2).replace(".", ",")}</span>
                     </div>
                   </div>
                 );
@@ -286,16 +274,20 @@ export default function VisualizacaoProposta() {
             <div className="flex flex-col gap-6 mb-10 pb-10 border-b border-white/10">
               <div className="flex justify-between text-sm">
                 <span className="text-white/50">Alimentação</span>
-                <span className="font-bold">R$ {(grandTotal * 0.9).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                <span className="font-bold">R$ {foodTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-white/50">Taxa de Entrega</span>
-                <span className="font-bold">R$ {(grandTotal * 0.05).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-white/50">Serviços</span>
-                <span className="font-bold">R$ {(grandTotal * 0.05).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </div>
+              {deliveryTotal > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-white/50">Taxa de Entrega</span>
+                  <span className="font-bold">R$ {deliveryTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+              )}
+              {servicesTotal > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-white/50">Serviços</span>
+                  <span className="font-bold">R$ {servicesTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+              )}
             </div>
 
             <div className="flex items-start gap-4 p-5 bg-white/5 rounded-2xl mb-8">
