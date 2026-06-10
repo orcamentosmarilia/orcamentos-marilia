@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { isAdminRole } from '@/lib/permissions';
 
 function adminClient() {
   return createClient(
@@ -101,6 +102,13 @@ export async function POST(request: Request) {
   if (action === 'update_permissions') {
     const { role, permissions } = body;
     if (!role) return NextResponse.json({ error: 'Cargo obrigatório.' }, { status: 400 });
+    // O cargo admin tem acesso total permanente — nunca pode ser alterado.
+    if (isAdminRole(role, permissions)) {
+      return NextResponse.json(
+        { error: 'O cargo "admin" tem acesso total permanente e não pode ser editado.' },
+        { status: 403 },
+      );
+    }
     const { error } = await supabase
       .from('role_settings')
       .update({ permissions: permissions ?? {} })
@@ -113,6 +121,10 @@ export async function POST(request: Request) {
   if (action === 'rename_role') {
     const { oldRole, newRole } = body;
     if (!newRole?.trim()) return NextResponse.json({ error: 'Nome inválido.' }, { status: 400 });
+    // O cargo admin não pode ser renomeado (perderia a proteção de acesso total).
+    if (isAdminRole(oldRole)) {
+      return NextResponse.json({ error: 'O cargo "admin" não pode ser renomeado.' }, { status: 403 });
+    }
 
     // Cria novo cargo copiando permissões do antigo
     const { data: oldData } = await supabase
@@ -134,6 +146,10 @@ export async function POST(request: Request) {
 
   if (action === 'delete_role') {
     const { role } = body;
+    // O cargo admin não pode ser deletado.
+    if (isAdminRole(role)) {
+      return NextResponse.json({ error: 'O cargo "admin" não pode ser deletado.' }, { status: 403 });
+    }
     const { data: usersWithRole } = await supabase
       .from('admin_users').select('id').eq('role', role);
     if (usersWithRole && usersWithRole.length > 0)

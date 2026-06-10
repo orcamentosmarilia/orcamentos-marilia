@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { effectivePermissions } from '@/lib/permissions';
 
 function adminClient() {
   return createClient(
@@ -31,7 +32,11 @@ export async function GET(request: Request) {
     .eq('role', data.role)
     .single();
 
-  return NextResponse.json({ user: data, permissions: roleData?.permissions || {} });
+  // Admin sempre recebe acesso total, independentemente do que está salvo.
+  return NextResponse.json({
+    user: data,
+    permissions: effectivePermissions(data.role, roleData?.permissions),
+  });
 }
 
 // POST /api/user/profile — atualiza perfil, email ou senha

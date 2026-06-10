@@ -9,6 +9,7 @@ import {
   Plus, Trash2, Eye, X, Camera, Pencil, Check
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
+import { isAdminRole } from "@/lib/permissions";
 
 interface AdminUser {
   id: string;
@@ -199,10 +200,17 @@ export default function UsuariosPage() {
 
   // Apenas altera o rascunho local — só persiste em savePermissions()
   function togglePermDraft(permId: string) {
+    // O cargo admin é imutável (acesso total permanente).
+    if (isAdminRole(activeRole, roles.find(r => r.role === activeRole)?.permissions)) return;
     setPermDraft(prev => ({ ...prev, [permId]: !prev[permId] }));
   }
 
   async function savePermissions() {
+    // Trava de segurança: nunca salva alterações no cargo admin.
+    if (isAdminRole(activeRole, roles.find(r => r.role === activeRole)?.permissions)) {
+      toast.error('O cargo "admin" tem acesso total permanente e não pode ser editado.');
+      return;
+    }
     setSaving("perm-" + activeRole);
     const res = await fetch("/api/admin/users", {
       method: "POST",
@@ -254,6 +262,8 @@ export default function UsuariosPage() {
   })();
 
   const currentRole = roles.find(r => r.role === activeRole);
+  // O cargo admin tem acesso total permanente e não pode ser editado.
+  const activeIsAdmin = isAdminRole(activeRole, currentRole?.permissions);
   const filtered = users.filter(u =>
     (u.name ?? "").toLowerCase().includes(search.toLowerCase()) ||
     u.email.toLowerCase().includes(search.toLowerCase()) ||
@@ -435,35 +445,54 @@ export default function UsuariosPage() {
                 ) : (
                   <>
                     <span className="text-[11px] font-bold uppercase tracking-widest text-[#5C1F2E]">{activeRole}</span>
-                    <button
-                      onClick={() => { setRoleNameDraft(activeRole); setEditingRoleName(true); }}
-                      className="p-1 text-rose-300 hover:text-[#D14237] rounded transition-colors"
-                      title="Renomear cargo"
-                    >
-                      <Pencil size={13} />
-                    </button>
+                    {activeIsAdmin ? (
+                      <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-[#5C1F2E] bg-[#5C1F2E]/8 px-2 py-0.5 rounded-full">
+                        <ShieldCheck size={11} /> Protegido
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => { setRoleNameDraft(activeRole); setEditingRoleName(true); }}
+                        className="p-1 text-rose-300 hover:text-[#D14237] rounded transition-colors"
+                        title="Renomear cargo"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                    )}
                   </>
                 )}
-                <button
-                  onClick={async () => { if (await confirmDialog({ message: `Deletar cargo "${activeRole}"?`, danger: true, confirmText: "Deletar" })) deleteRole(activeRole); }}
-                  disabled={!!saving}
-                  className="ml-auto p-1.5 text-rose-200 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                  title="Deletar cargo"
-                >
-                  {saving === "delrole-" + activeRole ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                </button>
+                {!activeIsAdmin && (
+                  <button
+                    onClick={async () => { if (await confirmDialog({ message: `Deletar cargo "${activeRole}"?`, danger: true, confirmText: "Deletar" })) deleteRole(activeRole); }}
+                    disabled={!!saving}
+                    className="ml-auto p-1.5 text-rose-200 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                    title="Deletar cargo"
+                  >
+                    {saving === "delrole-" + activeRole ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {currentRole && activeIsAdmin && (
+              <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-[#5C1F2E]/5 border border-[#5C1F2E]/10 mb-2">
+                <ShieldCheck className="text-[#5C1F2E] shrink-0 mt-0.5" size={16} />
+                <p className="text-[11px] font-dm text-[#5C1F2E] leading-relaxed">
+                  <span className="font-bold uppercase tracking-wide">Acesso total permanente.</span> O cargo
+                  {" "}<b>admin</b> sempre tem todas as permissões e não pode ser editado, renomeado ou deletado.
+                </p>
               </div>
             )}
 
             {currentRole && (
               <div className="space-y-2">
                 {PERMISSIONS.map(p => {
-                  const on = !!permDraft[p.id];
+                  const on = activeIsAdmin ? true : !!permDraft[p.id];
                   return (
                     <button
                       key={p.id}
                       onClick={() => togglePermDraft(p.id)}
-                      className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${on ? "bg-rose-50 border-[#D14237]/20" : "bg-white border-rose-50 opacity-60"}`}
+                      disabled={activeIsAdmin}
+                      className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${on ? "bg-rose-50 border-[#D14237]/20" : "bg-white border-rose-50 opacity-60"} ${activeIsAdmin ? "cursor-not-allowed" : ""}`}
                     >
                       <div className="flex items-center gap-2.5">
                         <span className={`material-symbols-outlined text-base ${on ? "text-[#D14237]" : "text-rose-200"}`}>{p.icon}</span>
@@ -477,6 +506,7 @@ export default function UsuariosPage() {
                 })}
 
                 {/* Atalhos marcar/desmarcar tudo */}
+                {!activeIsAdmin && (
                 <div className="flex items-center gap-3 pt-1">
                   <button
                     onClick={() => setPermDraft(Object.fromEntries(PERMISSIONS.map(p => [p.id, true])))}
@@ -492,8 +522,10 @@ export default function UsuariosPage() {
                     Desmarcar tudo
                   </button>
                 </div>
+                )}
 
                 {/* Barra de salvar */}
+                {!activeIsAdmin && (
                 <div className="flex items-center justify-between gap-2 pt-3 mt-2 border-t border-rose-50">
                   <span className={`text-[10px] font-bold ${permDirty ? "text-[#D14237]" : "text-rose-300"}`}>
                     {permDirty ? "● Alterações não salvas" : "Tudo salvo"}
@@ -517,6 +549,7 @@ export default function UsuariosPage() {
                     </button>
                   </div>
                 </div>
+                )}
               </div>
             )}
           </div>
