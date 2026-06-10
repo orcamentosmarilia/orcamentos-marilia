@@ -104,8 +104,8 @@ export function computeAutoItems(rules: ItemRule[], ctx: ItemCtx): AccessoryLine
 export function calcularTotais(input: CalcInput, calcRules: any, modalidades: any[]) {
   const { guests, duration_hours, modalidade, inclui_doces, has_cafe, has_agua_suco_refri, has_glass_cup, has_porcelain_cup, material } = input;
 
-  // Parâmetros obrigatórios — sem fallback silencioso; falha claro se faltar.
-  if (!calcRules?.rounding || !calcRules?.accessories || !calcRules?.bolo
+  // Parâmetros obrigatórios do CARDÁPIO — acessórios e bolo agora são Dependências de Produtos.
+  if (!calcRules?.rounding?.food_multiple
     || !Array.isArray(calcRules?.consumption) || calcRules.consumption.length === 0) {
     throw new Error("Parâmetros de cálculo incompletos. Configure em Configurações → Regras do Sistema.");
   }
@@ -131,47 +131,8 @@ export function calcularTotais(input: CalcInput, calcRules: any, modalidades: an
   const economicoUnits = Math.round(totalUnits * splitEco);
   const elaboradoUnits = totalUnits - economicoUnits;
 
-  // Regra 6: bolo
-  const bf = calcRules.bolo;
-  const nGrandes = Math.floor(guests / bf.guests_per_large);
-  const resto = guests - nGrandes * bf.guests_per_large;
-  let extraBoloSize = '';
-  if (resto >= bf.extra_large_min) extraBoloSize = `${bf.large_label} (${bf.large_weight})`;
-  else if (resto >= bf.extra_small_min) extraBoloSize = `${bf.small_label} (${bf.small_weight})`;
-  const extraBolos = extraBoloSize ? 1 : 0;
-  const totalBolos = nGrandes + extraBolos;
-
-  // Acessórios — todos os parâmetros vêm de calcRules (sem fallback).
-  const ac = calcRules.accessories;
-  const accessories: AccessoryLine[] = [];
-
-  const vasilhameQty = Math.ceil(totalUnits / ac.vasilhame_per_units) + totalBolos;
-  accessories.push({ item: 'Vasilhame', quantity: vasilhameQty, unit: 'unidade', unit_price: ac.vasilhame_price });
-
-  if (has_cafe) {
-    // Copos de isopor: omitir se xícara de porcelana foi selecionada
-    if (!has_porcelain_cup) {
-      const isopQty = Math.round(ac.isopor_per_person * guests);
-      accessories.push({ item: 'Copos isopor', quantity: isopQty, unit: 'unidade', unit_price: ac.isopor_price, rule: `${ac.isopor_per_person}/pessoa` });
-    }
-    accessories.push({ item: 'Pazinha', quantity: 1, unit: 'unidade', unit_price: ac.pazinha_price, rule: '1 por evento' });
-    const sachetQty = Math.ceil(ac.sachet_ratio * guests);
-    accessories.push({ item: 'Sachê açúcar', quantity: sachetQty, unit: 'unidade', unit_price: ac.sachet_price, rule: `${ac.sachet_ratio}/pessoa` });
-    accessories.push({ item: 'Sachê adoçante', quantity: sachetQty, unit: 'unidade', unit_price: ac.sachet_price, rule: `${ac.sachet_ratio}/pessoa` });
-  }
-
-  // Copos plásticos: omitir se copo de vidro foi selecionado
-  if (has_agua_suco_refri && !has_glass_cup && material === 'Descartável') {
-    const rawCopos = ac.copo_per_person * guests;
-    const coposMultiple = calcRules.rounding.copos_multiple;
-    const coposQty = Math.floor(rawCopos / coposMultiple) * coposMultiple;
-    accessories.push({ item: 'Copos plásticos 300ml', quantity: coposQty, unit: 'unidade', unit_price: ac.copo_price, rule: `${ac.copo_per_person}/pessoa, arredondar PARA BAIXO ao múltiplo de ${coposMultiple}` });
-  }
-
-  const rawGuardanapos = ac.guardanapo_per_person * guests;
-  const guardaMultiple = calcRules.rounding.guardanapos_multiple;
-  const guardanapQty = Math.floor(rawGuardanapos / guardaMultiple) * guardaMultiple;
-  accessories.push({ item: 'Guardanapos', quantity: guardanapQty, unit: 'unidade', unit_price: ac.guardanapo_price, rule: `${ac.guardanapo_per_person}/pessoa, arredondar PARA BAIXO ao múltiplo de ${guardaMultiple}` });
+  // Acessórios e bolo NÃO são mais calculados aqui — viraram Dependências de Produtos
+  // (tabela product_dependencies), adicionadas deterministicamente pelo generate-quote.
 
   return {
     guests,
@@ -187,19 +148,12 @@ export function calcularTotais(input: CalcInput, calcRules: any, modalidades: an
       requires_crocante: modalConfig.requires_crocante,
     },
     inclui_doces,
-    bolo: {
-      total_bolos: totalBolos,
-      n_grandes: nGrandes,
-      extra_bolo_size: extraBoloSize || null,
-    },
-    accessories,
     instrucoes: [
       `Use EXATAMENTE ${totalUnits} unidades de alimentos no cardápio (múltiplo de ${foodMultiple}).`,
       `Tier Econômico: ${economicoUnits} un | Tier Elaborado: ${elaboradoUnits} un.`,
       modalConfig.requires_crocante ? 'OBRIGATÓRIO ao menos 1 pastel crocante (tier Elaborado).' : '',
       inclui_doces ? 'Inclua doces no cardápio dentro do total de unidades.' : 'NÃO inclua doces.',
-      totalBolos > 0 ? `Inclua ${totalBolos} bolo(s): ${nGrandes}× grande${extraBoloSize ? ` + 1× ${extraBoloSize}` : ''}. Bolos não entram no total de unidades.` : 'Nenhum bolo neste evento.',
-      `Acessórios já calculados acima — inclua-os no JSON com os preços indicados.`,
+      `NÃO inclua acessórios, descartáveis nem bolos — eles são adicionados automaticamente pelo sistema.`,
     ].filter(Boolean),
   };
 }

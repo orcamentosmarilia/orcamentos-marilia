@@ -198,51 +198,8 @@ export default function SystemRules() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div><label className={lbl}>Comida (múltiplo)</label><Num value={calc?.rounding?.food_multiple} onChange={v => setCalcPath("rounding", "food_multiple", v)} /></div>
-          <div><label className={lbl}>Copos (múltiplo, ↓)</label><Num value={calc?.rounding?.copos_multiple} onChange={v => setCalcPath("rounding", "copos_multiple", v)} /></div>
-          <div><label className={lbl}>Guardanapos (múltiplo, ↓)</label><Num value={calc?.rounding?.guardanapos_multiple} onChange={v => setCalcPath("rounding", "guardanapos_multiple", v)} /></div>
         </div>
-      </section>
-
-      {/* BOLO */}
-      <section className={card}>
-        <div className="mb-5 pb-4 border-b border-[var(--color-brand-pink2)]">
-          <h2 className={h2}>Regra do Bolo</h2>
-          <p className={sub}>1 bolo grande a cada N pessoas; faixas e rótulos do bolo extra.</p>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div><label className={lbl}>Pessoas por bolo grande</label><Num value={calc?.bolo?.guests_per_large} onChange={v => setCalcPath("bolo", "guests_per_large", v)} /></div>
-          <div><label className={lbl}>Extra pequeno (mín)</label><Num value={calc?.bolo?.extra_small_min} onChange={v => setCalcPath("bolo", "extra_small_min", v)} /></div>
-          <div><label className={lbl}>Extra pequeno (máx)</label><Num value={calc?.bolo?.extra_small_max} onChange={v => setCalcPath("bolo", "extra_small_max", v)} /></div>
-          <div><label className={lbl}>Extra grande (mín)</label><Num value={calc?.bolo?.extra_large_min} onChange={v => setCalcPath("bolo", "extra_large_min", v)} /></div>
-          <div><label className={lbl}>Rótulo pequeno</label><Txt value={calc?.bolo?.small_label} onChange={v => setCalcPath("bolo", "small_label", v)} /></div>
-          <div><label className={lbl}>Peso pequeno</label><Txt value={calc?.bolo?.small_weight} onChange={v => setCalcPath("bolo", "small_weight", v)} /></div>
-          <div><label className={lbl}>Rótulo grande</label><Txt value={calc?.bolo?.large_label} onChange={v => setCalcPath("bolo", "large_label", v)} /></div>
-          <div><label className={lbl}>Peso grande</label><Txt value={calc?.bolo?.large_weight} onChange={v => setCalcPath("bolo", "large_weight", v)} /></div>
-        </div>
-      </section>
-
-      {/* ACESSÓRIOS */}
-      <section className={card}>
-        <div className="mb-5 pb-4 border-b border-[var(--color-brand-pink2)]">
-          <h2 className={h2}>Acessórios e Descartáveis</h2>
-          <p className={sub}>Preço e fator de quantidade dos acessórios calculados automaticamente.</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {[
-            { label: "Vasilhame", price: "vasilhame_price", qty: "vasilhame_per_units", qstep: 1 },
-            { label: "Copos de isopor (café)", price: "isopor_price", qty: "isopor_per_person", qstep: 0.5 },
-            { label: "Copos plásticos", price: "copo_price", qty: "copo_per_person", qstep: 0.5 },
-            { label: "Guardanapos", price: "guardanapo_price", qty: "guardanapo_per_person", qstep: 1 },
-            { label: "Pazinha (café)", price: "pazinha_price", qty: null, qstep: 1 },
-            { label: "Sachês açúcar/adoçante", price: "sachet_price", qty: "sachet_ratio", qstep: 0.5 },
-          ].map(f => (
-            <div key={f.price} className="border border-rose-100 rounded-2xl p-4 grid grid-cols-[1fr_100px_100px] gap-3 items-center">
-              <span className="font-dm font-bold text-sm text-[#5C1F2E]">{f.label}</span>
-              <div><label className={lbl}>R$/un</label><Num step={0.01} value={calc?.accessories?.[f.price]} onChange={v => setCalcPath("accessories", f.price, v)} /></div>
-              <div><label className={lbl}>{f.qty ? "Qtd" : "—"}</label>{f.qty ? <Num step={f.qstep} value={calc?.accessories?.[f.qty]} onChange={v => setCalcPath("accessories", f.qty!, v)} /> : <div className="text-xs text-rose-300 py-2">fixo</div>}</div>
-            </div>
-          ))}
-        </div>
+        <p className="text-[11px] text-rose-400 mt-3">Acessórios, descartáveis e bolo agora são configurados em <b>Dependências de Produtos</b> (abaixo).</p>
       </section>
 
       {/* MODALIDADES */}

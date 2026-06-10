@@ -6,6 +6,7 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createGroq } from '@ai-sdk/groq';
 import { supabase } from '@/lib/supabaseClient';
 import { calcularTotais } from '@/lib/quoteCalc';
+import { evaluateDependencies } from '@/lib/dependencies';
 import { z } from 'zod';
 
 function buildAIPrompt(modalidades: any[], composition: any | null, globalPrompt: string | null, rules: any[], exclusions: string[]): string {
@@ -502,9 +503,39 @@ Retorne apenas o JSON.`;
       return partial || null;
     }
 
-    // Computed accessories that are rule-based (not catalog products)
-    const COMPUTED_KEYWORDS = ['vasilhame', 'copo', 'guardanapo', 'pazinha', 'sachê', 'açúcar', 'adoçante', 'café (insumo)', 'café (aluguel'];
+    // DEPENDÊNCIAS — acessórios, descartáveis e bolo, como produtos reais (determinístico).
+    const totalsForDeps = calcularTotais({
+      guests, duration_hours: duration, modalidade,
+      inclui_doces: !!formData.incluiDoces,
+      has_cafe: hasCafe, has_agua_suco_refri: hasAguaSucoRefri,
+      has_tableware: hasTableware, has_glass_cup: hasGlassCup, has_porcelain_cup: hasPorcelainCup,
+      material: materialType,
+    }, calcRules, modalidades);
 
+    const { data: depRules } = await supabase.from('product_dependencies').select('*').eq('active', true);
+    const depList: any[] = depRules || [];
+    const depProductIds = new Set<string>();
+    for (const r of depList) {
+      if (r.product_id) depProductIds.add(r.product_id);
+      if (r.cake_rule?.large_product_id) depProductIds.add(r.cake_rule.large_product_id);
+      if (r.cake_rule?.small_product_id) depProductIds.add(r.cake_rule.small_product_id);
+    }
+    let depProducts: Record<string, any> = {};
+    if (depProductIds.size > 0) {
+      const { data: dp } = await supabase.from('products').select('id,name,unit,unit_price').in('id', Array.from(depProductIds));
+      depProducts = Object.fromEntries((dp || []).map((p: any) => [p.id, p]));
+    }
+    const depLines = evaluateDependencies(depList, depProducts, {
+      guests, totalFoodUnits: totalsForDeps.total_units,
+      hasCoffee: hasCafe, hasColdDrink: hasAguaSucoRefri,
+      selectedDrinkIds: new Set<string>(formData.drinks || []),
+      presentCategories: new Set<string>(),
+      selectedServiceIds: new Set<string>(selectedServiceIds),
+      material: materialType,
+    });
+
+    // Acessórios/descartáveis que a IA possa ter ecoado — ignoramos (já vêm das dependências).
+    const COMPUTED_KEYWORDS = ['vasilhame', 'copo', 'guardanapo', 'pazinha', 'sachê', 'açúcar', 'adoçante', 'bolo'];
     const isComputed = (desc: string) =>
       COMPUTED_KEYWORDS.some(kw => desc.toLowerCase().includes(kw));
 
@@ -519,11 +550,13 @@ Retorne apenas o JSON.`;
         item_type: srv.item_type ?? 'service',
         product_id: srv.product_id ?? null,
       })),
+      ...depLines.map(d => ({
+        quote_id: quote.id, product_id: d.product_id, description: d.description,
+        quantity: d.quantity, unit: d.unit, unit_price: d.unit_price, item_type: d.item_type,
+      })),
       ...(suggestedItems.items || []).map((item: any) => {
-        // Computed accessories bypass product matching
-        if (isComputed(item.description)) {
-          return { quote_id: quote.id, description: item.description, quantity: item.quantity, unit: item.unit, unit_price: item.unit_price, item_type: 'accessory', product_id: null };
-        }
+        // Acessório/bolo ecoado pela IA → ignorar (já adicionado deterministicamente).
+        if (isComputed(item.description)) return null;
         // Match against real DB products
         const match = findProduct(item.description);
         if (match) {
