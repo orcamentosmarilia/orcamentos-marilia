@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { toast, confirmDialog } from "@/components/Notify";
 import { Plus, Edit2, Trash2, X, Save, Box, Truck, Sparkles, ImagePlus, Loader2, Coffee } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
+import ProductDependencies from "@/components/ProductDependencies";
 import { useRef } from "react";
 
 interface Service {
@@ -42,10 +43,13 @@ interface DrinkMapping {
   id: string;
   label: string;
   productName: string;
+  counts_as_coffee?: boolean;   // dispara acessórios de café (isopor/pazinha/sachê)
+  counts_as_cold_drink?: boolean; // dispara copos plásticos
+  guests_per_unit?: number;     // 1 unidade a cada N pessoas
 }
 
 export default function LogisticaPage() {
-  const [activeTab, setActiveTab] = useState<"services" | "delivery" | "profiles" | "drinks">("services");
+  const [activeTab, setActiveTab] = useState<"services" | "delivery" | "profiles" | "drinks" | "materials">("services");
   
   const [services, setServices] = useState<Service[]>([]);
   const [deliveryFees, setDeliveryFees] = useState<DeliveryFee[]>([]);
@@ -112,19 +116,8 @@ export default function LogisticaPage() {
       setProfiles(resProfiles.data || []);
       setDrinkProducts(resDrinkProducts.data || []);
 
-      const DEFAULT_DRINK_MAPPINGS: DrinkMapping[] = [
-        { id: 'cafe',             label: 'Café',             productName: 'Café Expresso'      },
-        { id: 'agua',             label: 'Água',             productName: 'Água Mineral 1,5L'  },
-        { id: 'refrigerante',     label: 'Refrigerante',     productName: 'Coca-Cola 2L'       },
-        { id: 'suco_natural',     label: 'Suco Natural',     productName: 'Suco Laranja 500ml' },
-        { id: 'agua_gas',         label: 'Água com Gás',     productName: 'Água Gasosa 500ml'  },
-        { id: 'suco_tetrapak',    label: 'Suco Tetrapak',    productName: 'Suco Tetra Pack 1L' },
-        { id: 'leite',            label: 'Leite',            productName: 'Leite'              },
-        { id: 'cha',              label: 'Chá',              productName: 'Chá'                },
-        { id: 'chocolate_quente', label: 'Chocolate Quente', productName: 'Chocolate Quente'   },
-      ];
       const saved = resDrinkSettings.data?.value;
-      setDrinkMappings(Array.isArray(saved) ? saved : DEFAULT_DRINK_MAPPINGS);
+      setDrinkMappings(Array.isArray(saved) ? saved : []);
     } catch (error) {
       console.error("Erro ao carregar logística:", error);
     } finally {
@@ -135,10 +128,10 @@ export default function LogisticaPage() {
   // ---- Drink Mappings Actions ----
   const addDrinkMapping = () => {
     const newId = `drink_${Date.now()}`;
-    setDrinkMappings(prev => [...prev, { id: newId, label: '', productName: '' }]);
+    setDrinkMappings(prev => [...prev, { id: newId, label: '', productName: '', counts_as_coffee: false, counts_as_cold_drink: false, guests_per_unit: 10 }]);
   };
 
-  const updateDrinkMapping = (id: string, field: 'label' | 'productName', value: string) => {
+  const updateDrinkMapping = (id: string, field: keyof DrinkMapping, value: any) => {
     setDrinkMappings(prev => prev.map(d => d.id === id ? { ...d, [field]: value } : d));
   };
 
@@ -372,6 +365,9 @@ export default function LogisticaPage() {
             <button onClick={() => setActiveTab("drinks")} className={`flex items-center gap-2 px-5 py-2 rounded-lg font-dm font-bold text-sm transition-all ${activeTab === 'drinks' ? 'bg-white text-[#D14237] shadow-sm' : 'text-[#5C1F2E]/70 hover:text-[#5C1F2E]'}`}>
               <Coffee size={15} /> Bebidas
             </button>
+            <button onClick={() => setActiveTab("materials")} className={`flex items-center gap-2 px-5 py-2 rounded-lg font-dm font-bold text-sm transition-all ${activeTab === 'materials' ? 'bg-white text-[#D14237] shadow-sm' : 'text-[#5C1F2E]/70 hover:text-[#5C1F2E]'}`}>
+              <Box size={15} /> Materiais
+            </button>
           </div>
         }
       />
@@ -554,55 +550,80 @@ export default function LogisticaPage() {
                   p => p.name.toLowerCase() === dm.productName.toLowerCase()
                 );
                 return (
-                  <div key={dm.id} className="flex items-center gap-3 bg-[#FAFAFA] border border-brand-pink2 rounded-xl p-4">
-                    <div className="flex-1 min-w-0">
-                      <label className="text-[10px] font-bold text-rose-400 uppercase tracking-widest block mb-1">Nome do tipo</label>
-                      <input
-                        type="text"
-                        value={dm.label}
-                        onChange={e => updateDrinkMapping(dm.id, 'label', e.target.value)}
-                        placeholder="Ex: Refrigerante"
-                        className="w-full border border-brand-pink2 rounded-lg px-3 py-2 text-sm font-dm text-[#5C1F2E] focus:outline-none focus:border-[#D14237]"
-                      />
-                    </div>
-                    <div className="flex-[2] min-w-0">
-                      <label className="text-[10px] font-bold text-rose-400 uppercase tracking-widest block mb-1">
-                        Produto vinculado
-                        {!linkedProduct && dm.productName && (
-                          <span className="text-orange-400 ml-2">· não encontrado no catálogo</span>
-                        )}
-                      </label>
-                      <select
-                        value={dm.productName}
-                        onChange={e => updateDrinkMapping(dm.id, 'productName', e.target.value)}
-                        className="w-full border border-brand-pink2 rounded-lg px-3 py-2 text-sm font-dm text-[#5C1F2E] bg-white focus:outline-none focus:border-[#D14237]"
+                  <div key={dm.id} className="bg-[#FAFAFA] border border-brand-pink2 rounded-xl p-4">
+                    <div className="flex items-end gap-3">
+                      <div className="flex-1 min-w-0">
+                        <label className="text-[10px] font-bold text-rose-400 uppercase tracking-widest block mb-1">Nome do tipo</label>
+                        <input
+                          type="text"
+                          value={dm.label}
+                          onChange={e => updateDrinkMapping(dm.id, 'label', e.target.value)}
+                          placeholder="Ex: Refrigerante"
+                          className="w-full border border-brand-pink2 rounded-lg px-3 py-2 text-sm font-dm text-[#5C1F2E] focus:outline-none focus:border-[#D14237]"
+                        />
+                      </div>
+                      <div className="flex-[2] min-w-0">
+                        <label className="text-[10px] font-bold text-rose-400 uppercase tracking-widest block mb-1">
+                          Produto vinculado
+                          {!linkedProduct && dm.productName && (
+                            <span className="text-orange-400 ml-2">· não encontrado no catálogo</span>
+                          )}
+                        </label>
+                        <select
+                          value={dm.productName}
+                          onChange={e => updateDrinkMapping(dm.id, 'productName', e.target.value)}
+                          className="w-full border border-brand-pink2 rounded-lg px-3 py-2 text-sm font-dm text-[#5C1F2E] bg-white focus:outline-none focus:border-[#D14237]"
+                        >
+                          <option value="">— selecione um produto —</option>
+                          {['Bebidas', 'Sucos Naturais'].map(cat => {
+                            const catProducts = drinkProducts.filter(p => p.category === cat);
+                            if (catProducts.length === 0) return null;
+                            return (
+                              <optgroup key={cat} label={cat}>
+                                {catProducts.map(p => (
+                                  <option key={p.id} value={p.name}>{p.name}</option>
+                                ))}
+                              </optgroup>
+                            );
+                          })}
+                        </select>
+                      </div>
+                      <button
+                        onClick={() => removeDrinkMapping(dm.id)}
+                        className="p-2 text-rose-300 hover:text-[#D14237] transition-colors flex-shrink-0"
+                        title="Remover"
                       >
-                        <option value="">— selecione um produto —</option>
-                        {['Bebidas', 'Sucos Naturais'].map(cat => {
-                          const catProducts = drinkProducts.filter(p => p.category === cat);
-                          if (catProducts.length === 0) return null;
-                          return (
-                            <optgroup key={cat} label={cat}>
-                              {catProducts.map(p => (
-                                <option key={p.id} value={p.name}>{p.name}</option>
-                              ))}
-                            </optgroup>
-                          );
-                        })}
-                      </select>
+                        <Trash2 size={16} />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => removeDrinkMapping(dm.id)}
-                      className="p-2 text-rose-300 hover:text-[#D14237] transition-colors flex-shrink-0 mt-4"
-                      title="Remover"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    {/* Regras da bebida — o que ela dispara e a proporção */}
+                    <div className="flex flex-wrap items-center gap-5 mt-3 pt-3 border-t border-brand-pink2/60">
+                      <label className="flex items-center gap-1.5 text-xs font-dm text-[#5C1F2E]">
+                        <input type="checkbox" checked={!!dm.counts_as_coffee} onChange={e => updateDrinkMapping(dm.id, 'counts_as_coffee', e.target.checked)} />
+                        Conta como café <span className="text-rose-300">(dispara isopor/pazinha/sachê)</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 text-xs font-dm text-[#5C1F2E]">
+                        <input type="checkbox" checked={!!dm.counts_as_cold_drink} onChange={e => updateDrinkMapping(dm.id, 'counts_as_cold_drink', e.target.checked)} />
+                        Bebida fria <span className="text-rose-300">(dispara copos plásticos)</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 text-xs font-dm text-[#5C1F2E]">
+                        1 unidade a cada
+                        <input type="number" min={1} value={dm.guests_per_unit ?? 10} onChange={e => updateDrinkMapping(dm.id, 'guests_per_unit', parseInt(e.target.value) || 10)} className="w-16 border border-brand-pink2 rounded-lg px-2 py-1 text-sm" />
+                        pessoas
+                      </label>
+                    </div>
                   </div>
                 );
               })}
             </div>
           </>
+        )}
+
+        {/* Tab: Materiais e Acessórios (Dependências de Produtos) */}
+        {activeTab === "materials" && (
+          <div className="p-6">
+            <ProductDependencies />
+          </div>
         )}
       </div>
 

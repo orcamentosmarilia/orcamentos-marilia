@@ -61,7 +61,6 @@ export default function SystemRules() {
   const [calc, setCalc] = useState<any>(null);
   const [modal, setModal] = useState<any>(null);
   const [comp, setComp] = useState<any>(null);
-  const [drinks, setDrinks] = useState<any[]>([]);
   const [stages, setStages] = useState<any[]>([]);
   const [form, setForm] = useState<any>(null);
   const [status, setStatus] = useState<any[]>([]);
@@ -71,14 +70,13 @@ export default function SystemRules() {
 
   async function load() {
     setLoading(true);
-    const keys = ["calculation_rules", "modalidade_config", "composition_rules", "drink_mappings", "pipeline_stages", "quote_form_config", "status_config", "ai_exclusions"];
+    const keys = ["calculation_rules", "modalidade_config", "composition_rules", "pipeline_stages", "quote_form_config", "status_config", "ai_exclusions"];
     const { data } = await supabase.from("settings").select("key,value").in("key", keys);
     const map: Record<string, any> = {};
     (data || []).forEach((r: any) => { map[r.key] = r.value; });
     setCalc(map.calculation_rules || {});
     setModal(map.modalidade_config || { modalidades: [] });
     setComp(map.composition_rules || {});
-    setDrinks(Array.isArray(map.drink_mappings) ? map.drink_mappings : []);
     setStages(Array.isArray(map.pipeline_stages) ? map.pipeline_stages : []);
     setForm(map.quote_form_config || {});
     setStatus(Array.isArray(map.status_config) ? map.status_config : []);
@@ -94,7 +92,6 @@ export default function SystemRules() {
         { key: "calculation_rules", value: calc, updated_at: now },
         { key: "modalidade_config", value: modal, updated_at: now },
         { key: "composition_rules", value: comp, updated_at: now },
-        { key: "drink_mappings", value: drinks, updated_at: now },
         { key: "pipeline_stages", value: stages, updated_at: now },
         { key: "quote_form_config", value: form, updated_at: now },
         { key: "status_config", value: status, updated_at: now },
@@ -252,33 +249,6 @@ export default function SystemRules() {
               </div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* BEBIDAS */}
-      <section className={card}>
-        <div className="mb-5 pb-4 border-b border-[var(--color-brand-pink2)]">
-          <h2 className={h2}>Mapa de Bebidas</h2>
-          <p className={sub}>Bebida → produto do catálogo, quantidade e o que ela dispara.</p>
-        </div>
-        <div className="flex flex-col gap-2">
-          <div className="grid grid-cols-[1fr_1fr_70px_70px_90px_32px] gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-            <span>Rótulo</span><span>Produto</span><span>Café?</span><span>Frio?</span><span>1 a cada</span><span></span>
-          </div>
-          {drinks.map((d, i) => {
-            const upd = (patch: any) => setDrinks(prev => prev.map((x, j) => j === i ? { ...x, ...patch } : x));
-            return (
-              <div key={i} className="grid grid-cols-[1fr_1fr_70px_70px_90px_32px] gap-2 items-center">
-                <Txt value={d.label} onChange={v => upd({ label: v })} />
-                <Txt value={d.productName} onChange={v => upd({ productName: v })} />
-                <input type="checkbox" checked={!!d.counts_as_coffee} onChange={e => upd({ counts_as_coffee: e.target.checked })} className="justify-self-center" />
-                <input type="checkbox" checked={!!d.counts_as_cold_drink} onChange={e => upd({ counts_as_cold_drink: e.target.checked })} className="justify-self-center" />
-                <Num value={d.guests_per_unit} onChange={v => upd({ guests_per_unit: v })} />
-                <button onClick={() => setDrinks(prev => prev.filter((_, j) => j !== i))} className="text-rose-300 hover:text-red-500"><Trash2 size={14} /></button>
-              </div>
-            );
-          })}
-          <button onClick={() => setDrinks(prev => [...prev, { id: `drink_${Date.now()}`, label: "", productName: "", counts_as_coffee: false, counts_as_cold_drink: false, guests_per_unit: 10 }])} className="self-start text-[11px] font-bold text-[var(--color-brand-red)] flex items-center gap-1"><Plus size={13} /> Bebida</button>
         </div>
       </section>
 

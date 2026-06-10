@@ -164,6 +164,34 @@ export async function POST(request: Request) {
 
     const businessRules: any[] = Array.isArray(businessRulesData?.value) ? businessRulesData.value : [];
 
+    // Dependências (materiais/acessórios/bolo) — carregadas uma vez; usadas no prompt E no motor.
+    const { data: depRulesData } = await supabase.from('product_dependencies').select('*').eq('active', true).order('sort_order');
+    const depList: any[] = depRulesData || [];
+    const depProductIds = new Set<string>();
+    for (const r of depList) {
+      if (r.product_id) depProductIds.add(r.product_id);
+      if (r.cake_rule?.large_product_id) depProductIds.add(r.cake_rule.large_product_id);
+      if (r.cake_rule?.small_product_id) depProductIds.add(r.cake_rule.small_product_id);
+    }
+    let depProducts: Record<string, any> = {};
+    if (depProductIds.size > 0) {
+      const { data: dp } = await supabase.from('products').select('id,name,unit,unit_price').in('id', Array.from(depProductIds));
+      depProducts = Object.fromEntries((dp || []).map((p: any) => [p.id, p]));
+    }
+    // Espelho legível das regras de materiais para a IA (evita redigitação manual).
+    const triggerLabel = (r: any): string => r.cake_rule ? 'sempre (regra de bolo, por faixa de pessoas)' : (({
+      always: 'sempre', has_coffee: 'quando houver café', has_cold_drink: 'quando houver bebida fria',
+      drink: `quando houver a bebida "${r.trigger_value}"`, category: `quando houver a categoria "${r.trigger_value}"`,
+      service: 'quando o serviço relacionado for selecionado', material: `quando o material for "${r.trigger_value}"`,
+    } as Record<string, string>)[r.trigger_type] || r.trigger_type);
+    const materialsRulesText = depList.length
+      ? '## REGRAS DE SERVIÇOS E MATERIAIS\nEstes itens são adicionados AUTOMATICAMENTE pelo sistema — NÃO os inclua no cardápio:\n'
+        + depList.map((r: any) => {
+            const pn = r.cake_rule ? (depProducts[r.cake_rule.large_product_id]?.name || 'Bolo') : (depProducts[r.product_id]?.name || r.name);
+            return `- ${pn}: ${triggerLabel(r)}`;
+          }).join('\n')
+      : '';
+
     // Build system prompt automatically from structured DB settings
     const GENERATION_SYSTEM_PROMPT = buildAIPrompt(modalidades, composition, globalPrompt, businessRules, aiExclusions);
 
@@ -290,15 +318,17 @@ export async function POST(request: Request) {
       }
     }
 
-    // 5. Resolve event profile name
+    // 5. Resolve event profile name + regras do tipo de evento (prompt_rules)
     let eventTypeName = formData.eventName || '';
+    let eventProfileRules = '';
     if (formData.eventType && formData.eventType !== 'custom' && formData.eventType !== '') {
       const { data: profileData } = await supabase
         .from('event_profiles')
-        .select('name')
+        .select('name, prompt_rules')
         .eq('id', formData.eventType)
         .single();
       if (profileData?.name) eventTypeName = profileData.name;
+      if (profileData?.prompt_rules) eventProfileRules = profileData.prompt_rules;
     }
     if (!eventTypeName) eventTypeName = modalidade;
 
@@ -414,7 +444,10 @@ ${hasGlassCup ? 'COPO DE VIDRO selecionado: NÃO inclua copos plásticos (substi
 Retorne apenas o JSON.`;
 
     // 8. Call AI with Tool Calling
-    const systemPrompt = GENERATION_SYSTEM_PROMPT;
+    const eventRulesBlock = eventProfileRules
+      ? `## REGRAS DO TIPO DE EVENTO (${eventTypeName})\n${eventProfileRules}`
+      : '';
+    const systemPrompt = [GENERATION_SYSTEM_PROMPT, materialsRulesText, eventRulesBlock].filter(Boolean).join('\n\n');
 
     const { text } = await generateText({
       model: aiModel,
@@ -512,19 +545,6 @@ Retorne apenas o JSON.`;
       material: materialType,
     }, calcRules, modalidades);
 
-    const { data: depRules } = await supabase.from('product_dependencies').select('*').eq('active', true);
-    const depList: any[] = depRules || [];
-    const depProductIds = new Set<string>();
-    for (const r of depList) {
-      if (r.product_id) depProductIds.add(r.product_id);
-      if (r.cake_rule?.large_product_id) depProductIds.add(r.cake_rule.large_product_id);
-      if (r.cake_rule?.small_product_id) depProductIds.add(r.cake_rule.small_product_id);
-    }
-    let depProducts: Record<string, any> = {};
-    if (depProductIds.size > 0) {
-      const { data: dp } = await supabase.from('products').select('id,name,unit,unit_price').in('id', Array.from(depProductIds));
-      depProducts = Object.fromEntries((dp || []).map((p: any) => [p.id, p]));
-    }
     const depLines = evaluateDependencies(depList, depProducts, {
       guests, totalFoodUnits: totalsForDeps.total_units,
       hasCoffee: hasCafe, hasColdDrink: hasAguaSucoRefri,
