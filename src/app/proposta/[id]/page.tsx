@@ -196,28 +196,45 @@ export default function PublicProposalPage() {
     return val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
-  // Logic for grouping and sorting
-  const groupedItems = items.reduce((acc: any, item) => {
-    let cat = "Outros";
+  // Agrupa e ordena os itens seguindo a MESMA hierarquia de categorias do orçamento
+  const hierarchy: any[] = Array.isArray(categoryHierarchy) ? categoryHierarchy : [];
+  const catToGroup: Record<string, string> = {};
+  const groupOrder: string[] = [];
+  for (const g of hierarchy) {
+    if (g && typeof g === "object" && Array.isArray(g.subcategories)) {
+      groupOrder.push(g.label);
+      for (const sub of g.subcategories) catToGroup[sub] = g.label;
+    }
+  }
+  const LOGISTICS_GROUP = "Logística e Serviços";
+  const OTHER_GROUP = "Outros itens";
+
+  const groupForItem = (item: any): string => {
     const desc = (item.description || "").toLowerCase();
     const productCat = item.products?.category;
-
-    if (
-      item.item_type === "service" || 
-      desc.includes("garçom") || desc.includes("louça") || 
+    const isLogistics =
+      item.item_type === "service" ||
+      desc.includes("garçom") || desc.includes("louça") ||
       desc.includes("serviço") || desc.includes("entrega") || desc.includes("frete") ||
-      productCat === "Logística"
-    ) {
-      cat = "Logística e Serviços";
-    } else {
-      cat = "Alimentação"; 
-    }
+      productCat === "Logística";
+    if (isLogistics) return LOGISTICS_GROUP;
+    if (productCat && catToGroup[productCat]) return catToGroup[productCat];
+    return OTHER_GROUP;
+  };
+
+  const groupedItems = items.reduce((acc: any, item) => {
+    const cat = groupForItem(item);
     if (!acc[cat]) acc[cat] = [];
     acc[cat].push(item);
     return acc;
   }, {});
 
-  const displayCategories = ["Alimentação", "Logística e Serviços"];
+  // Ordem: grupos da hierarquia (com itens) → Logística/Serviços → Outros
+  const displayCategories = [
+    ...groupOrder.filter(g => groupedItems[g]?.length),
+    ...(groupedItems[LOGISTICS_GROUP]?.length ? [LOGISTICS_GROUP] : []),
+    ...(groupedItems[OTHER_GROUP]?.length ? [OTHER_GROUP] : []),
+  ];
 
   return (
     <div className="min-h-screen bg-[#FDF6F2] text-[#6B5C5A] font-['DM_Sans',sans-serif] selection:bg-[#D14237] selection:text-white">
@@ -367,12 +384,18 @@ export default function PublicProposalPage() {
                           // For display, we show the quantity stored.
                           const displayQty = isPercent ? "Taxa Única" : `${item.quantity} un`;
 
+                          const fallbackIcon = item.description.toLowerCase().includes('garçom')
+                            ? 'groups'
+                            : (catName === LOGISTICS_GROUP ? 'local_shipping' : 'restaurant');
+
                           return (
                             <div key={idx} className="bg-white hover:bg-[#FAE8E6]/10 p-8 rounded-[24px] flex items-center gap-10 transition-all group item-card print:border-b print:border-[#F5D8D5] print:rounded-none">
-                              <div className="w-14 h-14 rounded-full bg-[#FAE8E6] flex items-center justify-center text-[#D14237] group-hover:scale-110 transition-transform print:hidden">
-                                <span className="material-symbols-outlined text-2xl">
-                                  {item.description.toLowerCase().includes('garçom') ? 'groups' : (catName === "Alimentação" ? 'restaurant' : 'local_shipping')}
-                                </span>
+                              <div className="w-16 h-16 rounded-2xl bg-[#FAE8E6] overflow-hidden flex items-center justify-center text-[#D14237] flex-shrink-0 group-hover:scale-105 transition-transform">
+                                {item.products?.image_url ? (
+                                  <img src={item.products.image_url} alt={item.description} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="material-symbols-outlined text-2xl">{fallbackIcon}</span>
+                                )}
                               </div>
                               <div className="flex-1">
                                 <h4 className="font-lora text-xl font-bold text-[#5C1F2E] mb-1">{item.description}</h4>
