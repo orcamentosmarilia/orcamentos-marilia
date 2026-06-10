@@ -31,11 +31,6 @@ interface Stage {
 /* ─── Constants ─────────────────────────────────────────────── */
 const TERMINAL = ["aprovado", "perdido", "pago", "realizado"];
 
-const DEFAULT_STAGES: Stage[] = [
-  { id: "rascunho",   title: "Rascunho",   isDefault: true },
-  { id: "aguardando", title: "Aguardando",  isDefault: true },
-];
-
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 function stageDot(id: string) {
@@ -59,7 +54,7 @@ function creatorLabel(name: string | undefined) {
 /* ─── Page ───────────────────────────────────────────────────── */
 export default function PipelinePage() {
   const [quotes, setQuotes]         = useState<Quote[]>([]);
-  const [stages, setStages]         = useState<Stage[]>(DEFAULT_STAGES);
+  const [stages, setStages]         = useState<Stage[]>([]);
   const [loading, setLoading]       = useState(true);
   const [draggedId, setDraggedId]   = useState<string | null>(null);
 

@@ -36,29 +36,6 @@ const fmt = (v: number) =>
 
 const MONTHS = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
-const STATUS_COLOR: Record<string, string> = {
-  aprovado: "#2E7D4F", pago: "#2E7D4F",
-  rascunho: "#9E9E9E", aguardando: "#D14237", realizado: "#1565C0",
-  perdido: "#64748B",
-};
-const STATUS_LABEL: Record<string, string> = {
-  aprovado: "Aprovado", pago: "Pago",
-  rascunho: "Rascunho", aguardando: "Aguardando", realizado: "Realizado",
-  perdido: "Perdido",
-};
-
-function statusBadge(status: string) {
-  const s = status.toLowerCase();
-  const color = STATUS_COLOR[s] || "#9E9E9E";
-  const label = STATUS_LABEL[s] || status;
-  return (
-    <span
-      className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide text-white"
-      style={{ backgroundColor: color }}
-    >{label}</span>
-  );
-}
-
 function isoDate(d: Date) {
   return d.toISOString().split("T")[0];
 }
@@ -84,6 +61,24 @@ export default function DashboardPage() {
   const [preset, setPreset] = useState<Preset>("mes");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [statusCfg, setStatusCfg] = useState<{ id: string; label: string; color: string }[]>([]);
+
+  // Status (rótulos/cores) — fonte única em settings.status_config
+  useEffect(() => {
+    supabase.from("settings").select("value").eq("key", "status_config").single()
+      .then(({ data }) => { if (Array.isArray(data?.value)) setStatusCfg(data.value); });
+  }, []);
+
+  const STATUS_COLOR = useMemo(() => Object.fromEntries(statusCfg.map(s => [s.id, s.color])), [statusCfg]);
+  const STATUS_LABEL = useMemo(() => Object.fromEntries(statusCfg.map(s => [s.id, s.label])), [statusCfg]);
+
+  const statusBadge = (status: string) => {
+    const s = status.toLowerCase();
+    return (
+      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide text-white"
+        style={{ backgroundColor: STATUS_COLOR[s] || "#9E9E9E" }}>{STATUS_LABEL[s] || status}</span>
+    );
+  };
 
   /* ── Preset → date range ─── */
   useEffect(() => {
@@ -195,7 +190,7 @@ export default function DashboardPage() {
       value: v,
       color: STATUS_COLOR[s] || "#9E9E9E",
     }));
-  }, [filtered]);
+  }, [filtered, STATUS_LABEL, STATUS_COLOR]);
 
   /* ─────────────────────── RENDER ─────────────────────────── */
   if (loading) {

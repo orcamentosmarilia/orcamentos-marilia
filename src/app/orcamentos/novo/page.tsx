@@ -30,18 +30,6 @@ interface DrinkProduct {
   description: string;
 }
 
-const DEFAULT_DRINK_OPTIONS: { id: string; label: string; productName: string }[] = [
-  { id: 'cafe',             label: 'Café',             productName: 'Café Expresso'      },
-  { id: 'agua',             label: 'Água',             productName: 'Água Mineral 1,5L'  },
-  { id: 'refrigerante',     label: 'Refrigerante',     productName: 'Coca-Cola 2L'       },
-  { id: 'suco_natural',     label: 'Suco Natural',     productName: 'Suco Laranja 500ml' },
-  { id: 'agua_gas',         label: 'Água com Gás',     productName: 'Água Gasosa 500ml'  },
-  { id: 'suco_tetrapak',    label: 'Suco Tetrapak',    productName: 'Suco Tetra Pack 1L' },
-  { id: 'leite',            label: 'Leite',            productName: 'Leite'              },
-  { id: 'cha',              label: 'Chá',              productName: 'Chá'                },
-  { id: 'chocolate_quente', label: 'Chocolate Quente', productName: 'Chocolate Quente'   },
-];
-
 export default function NovoOrcamento() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -51,7 +39,11 @@ export default function NovoOrcamento() {
   const [availableServices, setAvailableServices] = useState<Service[]>([]);
   const [availableDeliveryFees, setAvailableDeliveryFees] = useState<any[]>([]);
   const [drinkProducts, setDrinkProducts] = useState<DrinkProduct[]>([]);
-  const [drinkOptions, setDrinkOptions] = useState(DEFAULT_DRINK_OPTIONS);
+  const [drinkOptions, setDrinkOptions] = useState<{ id: string; label: string; productName: string }[]>([]);
+
+  // Regras/seleções vindas das Configurações (nada hardcoded)
+  const [formConfig, setFormConfig] = useState<any>(null);
+  const [modalidadeNames, setModalidadeNames] = useState<string[]>([]);
   
   // Autocomplete State
   const [streetSuggestions, setStreetSuggestions] = useState<any[]>([]);
@@ -100,11 +92,30 @@ export default function NovoOrcamento() {
     if (resFees.data) setAvailableDeliveryFees(resFees.data);
     if (resDrinks.data) setDrinkProducts(resDrinks.data);
 
-    const { data: mappingsData } = await supabase
-      .from('settings').select('value').eq('key', 'drink_mappings').single();
-    if (Array.isArray(mappingsData?.value) && mappingsData.value.length > 0) {
-      setDrinkOptions(mappingsData.value);
-    }
+    // Seleções/regras do orçamento — fonte única no banco
+    const { data: settingsRows } = await supabase
+      .from('settings').select('key,value')
+      .in('key', ['drink_mappings', 'quote_form_config', 'modalidade_config']);
+    const sm: Record<string, any> = {};
+    (settingsRows || []).forEach((r: any) => { sm[r.key] = r.value; });
+
+    if (Array.isArray(sm.drink_mappings)) setDrinkOptions(sm.drink_mappings);
+
+    const fc = sm.quote_form_config || null;
+    setFormConfig(fc);
+
+    const names = (sm.modalidade_config?.modalidades || []).map((m: any) => m.name);
+    setModalidadeNames(names);
+
+    // Ajusta os defaults do formulário aos valores configurados.
+    setFormData(prev => ({
+      ...prev,
+      leadSource: fc?.lead_sources?.includes(prev.leadSource) ? prev.leadSource : (fc?.lead_sources?.[0] ?? prev.leadSource),
+      period: fc?.periods?.includes(prev.period) ? prev.period : (fc?.periods?.[0] ?? prev.period),
+      modalidade: names.includes(prev.modalidade) ? prev.modalidade : (names[0] ?? prev.modalidade),
+      guests: prev.guests || (fc?.guests?.default != null ? String(fc.guests.default) : prev.guests),
+      duration: prev.duration || (fc?.duration?.default != null ? String(fc.duration.default) : prev.duration),
+    }));
   }
 
   // ---- Address Logic ----
@@ -355,13 +366,9 @@ export default function NovoOrcamento() {
                     onChange={e => setFormData({...formData, leadSource: e.target.value})} 
                     className="w-full border border-[var(--color-brand-pink2)] rounded-[10px] p-3 text-sm focus:outline-none focus:border-[var(--color-brand-red)] focus:ring-2 focus:ring-[var(--color-brand-red)]/10 bg-white"
                   >
-                    <option value="WhatsApp">WhatsApp</option>
-                    <option value="Instagram">Instagram</option>
-                    <option value="Google">Google</option>
-                    <option value="Indicação">Indicação</option>
-                    <option value="Site">Site</option>
-                    <option value="Evento">Evento Anterior</option>
-                    <option value="Outros">Outros</option>
+                    {(formConfig?.lead_sources || []).map((src: string) => (
+                      <option key={src} value={src}>{src}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -469,7 +476,7 @@ export default function NovoOrcamento() {
                 <div className="col-span-12 mt-2">
                   <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-2 block">Período do Dia *</label>
                   <div className="flex flex-wrap gap-3">
-                    {['Manhã', 'Tarde', 'Noite', 'Dia todo'].map(period => (
+                    {(formConfig?.periods || []).map((period: string) => (
                       <button 
                         key={period} 
                         onClick={() => setFormData({...formData, period})}
@@ -563,7 +570,7 @@ export default function NovoOrcamento() {
                 <div>
                   <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-3 block">Modalidade *</label>
                   <div className="flex flex-wrap gap-3">
-                    {["Econômico", "Meio Termo", "Elaborado"].map(m => (
+                    {modalidadeNames.map(m => (
                       <button
                         key={m}
                         type="button"
@@ -603,11 +610,10 @@ export default function NovoOrcamento() {
                 <div>
                   <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-3 block">Espeto de Frutas</label>
                   <div className="flex flex-wrap gap-3">
-                    {[
-                      { value: "nao", label: "Não" },
-                      { value: "3frutas", label: "Mini Espeto — 3 frutas (R$ 3,50/un)" },
-                      { value: "4frutas", label: "Espeto — 4 frutas (R$ 4,50/un)" },
-                    ].map(opt => (
+                    {(formConfig?.skewer_options || []).map((opt: any) => ({
+                      value: opt.value,
+                      label: opt.price > 0 ? `${opt.label} (R$ ${Number(opt.price).toFixed(2).replace('.', ',')}/un)` : opt.label,
+                    })).map((opt: any) => (
                       <button
                         key={opt.value}
                         type="button"

@@ -8,6 +8,7 @@ import {
   ChevronDown, ChevronUp, ToggleLeft, ToggleRight, X, Check, GripVertical, Pencil, Trash2
 } from "lucide-react";
 import { toast, confirmDialog } from "@/components/Notify";
+import SystemRules from "@/components/SystemRules";
 
 interface ConfigState {
   ai_provider: string;
@@ -52,19 +53,6 @@ const DEFAULT_CATEGORY_GROUPS: CategoryGroup[] = [
 
 
 
-// Acessórios calculados deterministicamente em generate-quote (calcular_totais).
-// As chaves batem EXATAMENTE com calculation_rules.accessories — editar aqui muda o cálculo real.
-const ACCESSORY_FIELDS: {
-  label: string; icon: string; priceKey: string; qtyKey: string | null; qtyLabel: string; qtyStep: number; condition: string;
-}[] = [
-  { label: "Vasilhame", icon: "takeout_dining", priceKey: "vasilhame_price", qtyKey: "vasilhame_per_units", qtyLabel: "1 a cada N un. de comida (+ 1 por bolo)", qtyStep: 1, condition: "Sempre" },
-  { label: "Copos de isopor", icon: "local_cafe", priceKey: "isopor_price", qtyKey: "isopor_per_person", qtyLabel: "Por pessoa", qtyStep: 0.5, condition: "Se há café" },
-  { label: "Copos plásticos 300ml", icon: "local_drink", priceKey: "copo_price", qtyKey: "copo_per_person", qtyLabel: "Por pessoa (arredonda ↓ múlt. 50)", qtyStep: 0.5, condition: "Se água/suco/refri + descartável" },
-  { label: "Guardanapos", icon: "cleaning_services", priceKey: "guardanapo_price", qtyKey: "guardanapo_per_person", qtyLabel: "Por pessoa (arredonda ↓ múlt. 100)", qtyStep: 1, condition: "Sempre" },
-  { label: "Pazinha", icon: "spoon", priceKey: "pazinha_price", qtyKey: null, qtyLabel: "1 por evento", qtyStep: 1, condition: "Se há café" },
-  { label: "Sachês de açúcar e adoçante", icon: "grain", priceKey: "sachet_price", qtyKey: "sachet_ratio", qtyLabel: "Por pessoa (cada tipo)", qtyStep: 0.5, condition: "Se há café" },
-];
-
 export default function SettingsPage() {
   const [configs, setConfigs] = useState<ConfigState>({ ai_provider: "anthropic", ai_model: "claude-3-haiku-20240307", ai_api_key: "", ai_global_prompt: "", security_master_password: "" });
   const [availableModels, setAvailableModels] = useState<string[]>([]);
@@ -80,9 +68,6 @@ export default function SettingsPage() {
   const [editGroupLabel, setEditGroupLabel] = useState('');
   const [addingGroup, setAddingGroup] = useState(false);
   const [newGroupLabel, setNewGroupLabel] = useState('');
-
-  // Parâmetros de cálculo (acessórios) — fonte da verdade que a IA usa de fato
-  const [calcRules, setCalcRules] = useState<any | null>(null);
 
   // Regras de negócio
   const [rules, setRules] = useState<BusinessRule[]>(DEFAULT_RULES);
@@ -116,16 +101,13 @@ export default function SettingsPage() {
 
   async function fetchConfigs() {
     try {
-      const [{ data: aiData }, { data: catGroupsData }, { data: pwdData }, { data: productsData }, { data: businessRulesData }, { data: calcRulesData }] = await Promise.all([
+      const [{ data: aiData }, { data: catGroupsData }, { data: pwdData }, { data: productsData }, { data: businessRulesData }] = await Promise.all([
         supabase.from("system_config").select("*"),
         supabase.from("settings").select("value").eq("key", "category_order").single(),
         supabase.from("settings").select("value").eq("key", "security_master_password").single(),
         supabase.from("products").select("category").eq("is_active", true),
         supabase.from("settings").select("value").eq("key", "business_rules").single(),
-        supabase.from("settings").select("value").eq("key", "calculation_rules").single(),
       ]);
-
-      if (calcRulesData?.value) setCalcRules(calcRulesData.value);
 
       if (aiData?.length) {
         const newConfigs: any = { ...configs };
@@ -175,11 +157,6 @@ export default function SettingsPage() {
     setRules(updated);
     persistRules(updated);
   };
-  // ── Acessórios (calculation_rules) ────────────────────────────────
-  const updateAccessory = (key: string, val: number) => {
-    setCalcRules((prev: any) => ({ ...(prev || {}), accessories: { ...((prev || {}).accessories || {}), [key]: val } }));
-  };
-
   const startEditRule = (r: BusinessRule) => { setEditingRule(r.id); setEditDraft({ ...r }); };
   const saveEditRule = () => {
     if (!editDraft) return;
@@ -279,7 +256,6 @@ export default function SettingsPage() {
       await supabase.from("settings").upsert({ key: "security_master_password", value: configs.security_master_password, updated_at: new Date().toISOString() }, { onConflict: 'key' });
       await supabase.from("settings").upsert({ key: "category_order", value: categoryGroups, updated_at: new Date().toISOString() }, { onConflict: 'key' });
       await supabase.from("settings").upsert({ key: "business_rules", value: rules, updated_at: new Date().toISOString() }, { onConflict: 'key' });
-      if (calcRules) await supabase.from("settings").upsert({ key: "calculation_rules", value: calcRules, updated_at: new Date().toISOString() }, { onConflict: 'key' });
       toast.success("Configurações salvas com sucesso!");
     } catch (error: any) {
       toast.error("Erro ao salvar: " + error.message);
@@ -530,48 +506,8 @@ export default function SettingsPage() {
           )}
         </section>
 
-        {/* ACESSÓRIOS E DESCARTÁVEIS (calculation_rules) */}
-        <section className="bg-white rounded-3xl shadow-sm border border-[var(--color-brand-pink2)] p-8">
-          <div className="flex items-center gap-3 mb-2 pb-4 border-b border-[var(--color-brand-pink2)]">
-            <span className="material-symbols-outlined text-[var(--color-brand-red)] text-2xl">calculate</span>
-            <div>
-              <h2 className="font-lora text-xl font-bold text-[#5C1F2E]">Acessórios e Descartáveis</h2>
-              <p className="text-xs text-rose-400 mt-0.5">Preço e quantidade que a IA usa de fato ao montar o orçamento. Aplicados automaticamente conforme o evento.</p>
-            </div>
-          </div>
-          {!calcRules ? (
-            <p className="text-sm text-rose-300 font-dm py-4">Parâmetros não configurados no banco.</p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              {ACCESSORY_FIELDS.map(f => (
-                <div key={f.priceKey} className="border border-rose-100 rounded-2xl p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="material-symbols-outlined text-[var(--color-brand-red)] text-lg">{f.icon}</span>
-                    <span className="font-dm font-bold text-sm text-[#5C1F2E]">{f.label}</span>
-                    <span className="ml-auto text-[9px] font-bold uppercase tracking-wide bg-rose-50 text-rose-400 px-2 py-0.5 rounded-full">{f.condition}</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Preço (R$/un)</label>
-                      <input type="number" step="0.01" min="0" value={calcRules.accessories?.[f.priceKey] ?? ""} onChange={e => updateAccessory(f.priceKey, parseFloat(e.target.value) || 0)}
-                        className="w-full border border-rose-100 rounded-lg px-3 py-2 text-sm font-dm text-[#5C1F2E] focus:outline-none focus:border-[var(--color-brand-red)]" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Quantidade</label>
-                      {f.qtyKey ? (
-                        <input type="number" step={f.qtyStep} min="0" value={calcRules.accessories?.[f.qtyKey] ?? ""} onChange={e => updateAccessory(f.qtyKey!, parseFloat(e.target.value) || 0)}
-                          className="w-full border border-rose-100 rounded-lg px-3 py-2 text-sm font-dm text-[#5C1F2E] focus:outline-none focus:border-[var(--color-brand-red)]" />
-                      ) : (
-                        <div className="w-full border border-rose-50 rounded-lg px-3 py-2 text-sm font-dm text-rose-300 bg-rose-50/30">fixo</div>
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-rose-400 mt-2">{f.qtyLabel}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+        {/* REGRAS DO SISTEMA — todas as regras de cálculo, seleções e exibição */}
+        <SystemRules />
 
         {/* REGRAS DE NEGÓCIO */}
         <section className="bg-white rounded-3xl shadow-sm border border-[var(--color-brand-pink2)] p-8">
