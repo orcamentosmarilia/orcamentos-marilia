@@ -1,0 +1,97 @@
+{
+  "calculation_rules": {
+    "consumption": [
+      { "label": "até 30min", "max_hours": 0.5, "units_per_person": 7 },
+      { "label": "31 a 60min", "max_hours": 1, "units_per_person": 8 },
+      { "label": "1h a 3h", "max_hours": 3, "units_per_person": 10 },
+      { "label": "acima de 3h", "max_hours": 99, "units_per_person": 12 }
+    ],
+    "rounding": {
+      "food_multiple": 25,
+      "copos_multiple": 50,
+      "copos_direction": "down",
+      "guardanapos_multiple": 100,
+      "guardanapos_direction": "down"
+    },
+    "bolo": {
+      "guests_per_large": 50,
+      "extra_small_min": 13,
+      "extra_small_max": 37,
+      "extra_large_min": 38,
+      "small_label": "pequeno",
+      "small_weight": "650g",
+      "large_label": "grande",
+      "large_weight": "1300g"
+    },
+    "accessories": {
+      "vasilhame_price": 15,
+      "vasilhame_per_units": 100,
+      "isopor_price": 0.35,
+      "isopor_per_person": 1,
+      "copo_price": 0.4,
+      "copo_per_person": 2,
+      "guardanapo_price": 0.1,
+      "guardanapo_per_person": 4,
+      "pazinha_price": 0.15,
+      "sachet_price": 0.15,
+      "sachet_ratio": 0.5
+    }
+  },
+  "modalidade_config": {
+    "modalidades": [
+      { "name": "Econômico", "tier_split": { "Econômico": 1, "Elaborado": 0 }, "requires_crocante": true },
+      { "name": "Meio Termo", "tier_split": { "Econômico": 0.5, "Elaborado": 0.5 }, "requires_crocante": true },
+      { "name": "Elaborado", "tier_split": { "Econômico": 0, "Elaborado": 1 }, "requires_crocante": true }
+    ]
+  },
+  "composition_rules": {
+    "mandatory_items": ["Pão de Queijo"],
+    "mandatory_formats": ["pastel"],
+    "mandatory_flavors": ["frango", "carne", "sem carne"],
+    "include_sandwich": true,
+    "period_restrictions": {
+      "Manhã": "Sem frituras, exceto pastel. Prefira assados, pão de queijo, sanduíches, empadas.",
+      "Tarde": "Mescle assados e fritos livremente.",
+      "Noite": "Mescle assados e fritos livremente.",
+      "Dia todo": "Mescle assados e fritos livremente."
+    }
+  },
+  "drink_mappings": [
+    { "id": "cafe", "label": "Café", "productName": "Café", "counts_as_coffee": true, "counts_as_cold_drink": false, "guests_per_unit": 10 },
+    { "id": "agua", "label": "Água", "productName": "Água Mineral", "counts_as_coffee": false, "counts_as_cold_drink": true, "guests_per_unit": 10 },
+    { "id": "refrigerante", "label": "Refrigerante", "productName": "Refrigerante", "counts_as_coffee": false, "counts_as_cold_drink": true, "guests_per_unit": 10 },
+    { "id": "suco_natural", "label": "Suco Natural", "productName": "Suco de laranja", "counts_as_coffee": false, "counts_as_cold_drink": true, "guests_per_unit": 10 },
+    { "id": "agua_gas", "label": "Água com Gás", "productName": "Água com Gás", "counts_as_coffee": false, "counts_as_cold_drink": true, "guests_per_unit": 10 },
+    { "id": "suco_tetrapak", "label": "Suco Tetrapak", "productName": "Suco Tetra Pack 1L", "counts_as_coffee": false, "counts_as_cold_drink": true, "guests_per_unit": 10 },
+    { "id": "leite", "label": "Leite", "productName": "Leite", "counts_as_coffee": false, "counts_as_cold_drink": false, "guests_per_unit": 10 },
+    { "id": "cha", "label": "Chá", "productName": "Chá", "counts_as_coffee": false, "counts_as_cold_drink": false, "guests_per_unit": 10 },
+    { "id": "chocolate_quente", "label": "Chocolate Quente", "productName": "Chocolate quente", "counts_as_coffee": false, "counts_as_cold_drink": false, "guests_per_unit": 10 }
+  ],
+  "pipeline_stages": [
+    { "id": "rascunho", "title": "Rascunho", "isDefault": true },
+    { "id": "aguardando", "title": "Aguardando", "isDefault": true },
+    { "id": "aguardando_aprovacao", "title": "Aguardando aprovação" },
+    { "id": "solicitou_ajustes", "title": "Solicitou ajustes" }
+  ],
+  "quote_form_config": {
+    "periods": ["Manhã", "Tarde", "Noite", "Dia todo"],
+    "materials": ["Descartável", "Louça"],
+    "lead_sources": ["WhatsApp", "Instagram", "Google", "Indicação", "Site", "Evento Anterior", "Outros"],
+    "guests": { "min": 1, "max": 2000, "default": 50 },
+    "duration": { "min": 0.5, "max": 12, "default": 3 },
+    "skewer_options": [
+      { "value": "nao", "label": "Não", "price": 0, "qty_per_person": 0 },
+      { "value": "3frutas", "label": "Mini Espeto — 3 frutas", "price": 3.5, "qty_per_person": 1 },
+      { "value": "4frutas", "label": "Espeto — 4 frutas", "price": 4.5, "qty_per_person": 1 }
+    ]
+  },
+  "status_config": [
+    { "id": "rascunho", "label": "Rascunho", "color": "#9E9E9E", "isTerminal": false },
+    { "id": "aguardando", "label": "Aguardando", "color": "#D14237", "isTerminal": false },
+    { "id": "aprovado", "label": "Aprovado", "color": "#2E7D4F", "isTerminal": true },
+    { "id": "pago", "label": "Pago", "color": "#2E7D4F", "isTerminal": true },
+    { "id": "realizado", "label": "Realizado", "color": "#1565C0", "isTerminal": true },
+    { "id": "perdido", "label": "Perdido", "color": "#64748B", "isTerminal": true }
+  ],
+  "ai_exclusions": ["garçom", "louça (aluguel)", "aparador", "jarra", "gelo", "frete"]
+}
