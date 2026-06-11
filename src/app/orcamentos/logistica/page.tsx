@@ -359,9 +359,6 @@ export default function LogisticaPage() {
             <button onClick={() => setActiveTab("delivery")} className={`flex items-center gap-2 px-5 py-2 rounded-lg font-dm font-bold text-sm transition-all ${activeTab === 'delivery' ? 'bg-white text-[#D14237] shadow-sm' : 'text-[#5C1F2E]/70 hover:text-[#5C1F2E]'}`}>
               <Truck size={15} /> Entregas
             </button>
-            <button onClick={() => setActiveTab("profiles")} className={`flex items-center gap-2 px-5 py-2 rounded-lg font-dm font-bold text-sm transition-all ${activeTab === 'profiles' ? 'bg-white text-[#D14237] shadow-sm' : 'text-[#5C1F2E]/70 hover:text-[#5C1F2E]'}`}>
-              <Sparkles size={15} /> Modelos
-            </button>
             <button onClick={() => setActiveTab("drinks")} className={`flex items-center gap-2 px-5 py-2 rounded-lg font-dm font-bold text-sm transition-all ${activeTab === 'drinks' ? 'bg-white text-[#D14237] shadow-sm' : 'text-[#5C1F2E]/70 hover:text-[#5C1F2E]'}`}>
               <Coffee size={15} /> Bebidas
             </button>
@@ -460,55 +457,6 @@ export default function LogisticaPage() {
                         <td className="px-6 py-4 text-right">
                           <button onClick={() => openDeliveryModal(d)} className="p-2 text-rose-400 hover:text-[#5C1F2E]"><Edit2 size={16} /></button>
                           <button onClick={() => deleteDelivery(d.id)} className="p-2 text-rose-400 hover:text-[#D14237]"><Trash2 size={16} /></button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </>
-        )}
-
-        {/* Tab: Profiles */}
-        {activeTab === "profiles" && (
-          <>
-            <div className="p-4 border-b border-brand-pink2 bg-[#FAFAFA] flex justify-end">
-              <button onClick={() => openProfileModal()} className="bg-[#5C1F2E] text-white px-4 py-2 rounded-xl font-dm font-bold text-xs flex items-center gap-2 hover:bg-[#4A1925] transition-colors">
-                <Plus size={16} /> Novo Modelo de Evento
-              </button>
-            </div>
-            <div className="flex-1 overflow-x-auto">
-              {loading ? <div className="p-12 text-center text-rose-300 font-dm">Carregando...</div> : (
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-white border-b border-brand-pink2">
-                      <th className="px-6 py-4 font-dm font-bold text-[10px] text-rose-300 uppercase tracking-wider w-1/3">Nome do Pacote</th>
-                      <th className="px-6 py-4 font-dm font-bold text-[10px] text-rose-300 uppercase tracking-wider">Regras / Prompts Específicos</th>
-                      <th className="px-6 py-4 font-dm font-bold text-[10px] text-rose-300 uppercase tracking-wider text-right">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="font-dm text-sm divide-y divide-[#F5D8D5]/50">
-                    {profiles.map(p => (
-                      <tr key={p.id} className="hover:bg-[#FAE8E6]/50 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            {p.image_url ? (
-                              <img src={p.image_url} alt={p.name} className="w-10 h-10 rounded-lg object-cover border border-brand-pink2" />
-                            ) : (
-                              <div className="w-10 h-10 rounded-lg bg-rose-50 border border-dashed border-rose-100 flex items-center justify-center text-rose-200">
-                                <Sparkles size={16} />
-                              </div>
-                            )}
-                            <span className="font-bold text-[#5C1F2E]">{p.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-gray-600">
-                          <p className="line-clamp-2 text-xs">{p.prompt_rules}</p>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <button onClick={() => openProfileModal(p)} className="p-2 text-rose-400 hover:text-[#5C1F2E]"><Edit2 size={16} /></button>
-                          <button onClick={() => deleteProfile(p.id)} className="p-2 text-rose-400 hover:text-[#D14237]"><Trash2 size={16} /></button>
                         </td>
                       </tr>
                     ))}

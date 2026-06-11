@@ -5,26 +5,9 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createGroq } from '@ai-sdk/groq';
 import { supabase } from '@/lib/supabaseClient';
-import { calcularTotais } from '@/lib/quoteCalc';
 import { z } from 'zod';
 
-function buildAIPrompt(modalidades: any[], composition: any | null, globalPrompt: string | null, rules: any[]): string {
-  const modalBlock = modalidades.map(m => {
-    const eco = Math.round(((m.tier_split?.Econômico) ?? 1) * 100);
-    const ela = Math.round(((m.tier_split?.Elaborado) ?? 0) * 100);
-    return `- ${m.name}: ${eco}% tier Econômico + ${ela}% tier Elaborado${m.requires_crocante ? '. Obrigatório ao menos 1 pastel crocante (tier Elaborado).' : ''}`;
-  }).join('\n');
-
-  const compLines = composition ? [
-    `Itens sempre incluídos: ${(composition.mandatory_items || []).join(', ')}.`,
-    `Formatos obrigatórios: ${(composition.mandatory_formats || []).join(', ')}.`,
-    `Sabores obrigatórios: ${(composition.mandatory_flavors || []).join(', ')}.`,
-    composition.include_sandwich ? 'Inclua sempre ao menos 1 sanduíche.' : '',
-    Object.entries(composition.period_restrictions || {}).length > 0
-      ? `Restrições por período:\n${Object.entries(composition.period_restrictions).map(([p, r]) => `  - ${p}: ${r}`).join('\n')}`
-      : '',
-  ].filter(Boolean).join('\n') : '';
-
+function buildAIPrompt(globalPrompt: string | null, rules: any[]): string {
   const activeRules = (rules || []).filter((r: any) => r.active);
   const rulesBlock = activeRules.length > 0
     ? activeRules.map((r: any, i: number) => `${i + 1}. **${r.title}**: ${r.text}`).join('\n')
@@ -32,8 +15,6 @@ function buildAIPrompt(modalidades: any[], composition: any | null, globalPrompt
 
   return [
     SYSTEM_PROMPT_HEADER,
-    modalBlock ? `## MODALIDADES\n${modalBlock}` : '',
-    compLines ? `## COMPOSIÇÃO MÍNIMA\n${compLines}` : '',
     rulesBlock ? `## REGRAS DE NEGÓCIO\n${rulesBlock}` : '',
     globalPrompt ? `## INSTRUÇÕES ADICIONAIS DO ADMIN\n${globalPrompt}` : '',
     SYSTEM_PROMPT_FOOTER,
@@ -57,14 +38,14 @@ function calcDrinkQty(product: { unit: string; description: string }, guests: nu
 }
 
 const SYSTEM_PROMPT_HEADER = `Você é o gerador de orçamentos da Pastelaria Marília de Dirceu.
-Siga EXATAMENTE esta sequência de ferramentas — não pule nenhum passo:
+Monte o cardápio e as quantidades SEGUINDO as REGRAS DE NEGÓCIO abaixo (consumo por pessoa conforme a duração, modalidade do cardápio, arredondamentos, composição etc.).
 
-PASSO 1 — calcular_totais: chame este tool com os dados do evento. Ele retorna as quantidades exatas de unidades, divisão por tier e acessórios calculados pelas regras do banco.
-PASSO 2 — buscar_produtos: use o(s) tier(s) indicados pelo calcular_totais para buscar produtos reais. Chame uma vez por tier necessário.
-PASSO 3 — Monte o cardápio usando as quantidades EXATAS de calcular_totais. NÃO recalcule por conta própria.
-PASSO 4 — Retorne o JSON final.
+Passos:
+1. buscar_produtos: busque os produtos reais do catálogo (filtre por tier/categoria conforme a modalidade). Chame quantas vezes precisar.
+2. Calcule as quantidades a partir das REGRAS DE NEGÓCIO e do número de convidados/duração informados.
+3. Inclua os MATERIAIS E ACESSÓRIOS conforme a seção correspondente.
+4. Retorne o JSON final.
 
-As quantidades retornadas por calcular_totais são definitivas — não arredonde, não ajuste.
 Não invente preços — use sempre o retorno de buscar_produtos.`;
 
 const SYSTEM_PROMPT_FOOTER = `## FORMATO DE SAÍDA
@@ -99,15 +80,11 @@ export async function POST(request: Request) {
     const eventTime: string = formData.eventTime || null;
     let materialType = formData.material || 'Descartável';
 
-    // 1. Fetch all settings from DB (single source of truth — nada hardcoded)
-    const [{ data: configs }, { data: calcRulesData }, { data: modalidadeData }, { data: compositionData }, { data: drinkMappingsData }, { data: businessRulesData }, { data: categoriesData }, { data: formCfgData }] = await Promise.all([
+    // 1. Fetch settings from DB
+    const [{ data: configs }, { data: drinkMappingsData }, { data: businessRulesData }, { data: categoriesData }, { data: formCfgData }] = await Promise.all([
       supabase.from('system_config').select('key, value'),
-      supabase.from('settings').select('value').eq('key', 'calculation_rules').single(),
-      supabase.from('settings').select('value').eq('key', 'modalidade_config').single(),
-      supabase.from('settings').select('value').eq('key', 'composition_rules').single(),
       supabase.from('settings').select('value').eq('key', 'drink_mappings').single(),
       supabase.from('settings').select('value').eq('key', 'business_rules').single(),
-      // Categorias reais do catálogo — fonte única da verdade (nada chumbado no código)
       supabase.from('product_categories').select('name').order('name'),
       supabase.from('settings').select('value').eq('key', 'quote_form_config').single(),
     ]);
@@ -118,17 +95,6 @@ export async function POST(request: Request) {
       ? `Categoria exata do catálogo (use exatamente um destes nomes): ${categoryNames.map(n => `"${n}"`).join(', ')}. Omita para buscar em todas.`
       : 'Categoria do catálogo. Omita para buscar em todas.';
 
-    // Validate critical settings — return clear error for admin if missing
-    if (!calcRulesData?.value) {
-      return NextResponse.json({ error: 'Parâmetros de cálculo não configurados. Acesse Configurações > Parâmetros de Cálculo.' }, { status: 400 });
-    }
-    if (!modalidadeData?.value || !(modalidadeData.value as any).modalidades) {
-      return NextResponse.json({ error: 'Modalidades não configuradas. Acesse Configurações > Modalidades.' }, { status: 400 });
-    }
-
-    const calcRules = calcRulesData.value as any;
-    const modalidades = (modalidadeData.value as any).modalidades as any[];
-    const composition = compositionData?.value as any ?? null;
     const formCfg = (formCfgData?.value as any) ?? {};
 
     // Mapa de bebidas — fonte única no banco (sem fallback chumbado).
@@ -141,11 +107,6 @@ export async function POST(request: Request) {
     // Conjuntos de ids que disparam café / bebida fria (antes listas chumbadas).
     const coffeeDrinkIds = new Set(drinkMappingsArr.filter(d => d.counts_as_coffee).map(d => d.id));
     const coldDrinkIds = new Set(drinkMappingsArr.filter(d => d.counts_as_cold_drink).map(d => d.id));
-
-    // Valores válidos dinâmicos (sem enums chumbados no schema do tool).
-    const modalidadeNames: string[] = modalidades.map((m: any) => m.name);
-    const tierNames: string[] = Array.from(new Set(modalidades.flatMap((m: any) => Object.keys(m.tier_split || {}))));
-    const materialNames: string[] = Array.isArray(formCfg.materials) && formCfg.materials.length > 0 ? formCfg.materials : ['Descartável', 'Louça'];
 
     const configMap: Record<string, string> = configs?.reduce((acc: any, curr: any) => {
       acc[curr.key] = curr.value;
@@ -184,9 +145,8 @@ export async function POST(request: Request) {
           }).filter(Boolean).join('\n')
       : '';
 
-    // Build system prompt automatically from structured DB settings.
-    // composition_rules saiu — composição mínima agora é Regra de Negócio escrita.
-    const GENERATION_SYSTEM_PROMPT = buildAIPrompt(modalidades, null, globalPrompt, businessRules);
+    // Prompt do sistema = regras de negócio escritas (modalidade, consumo, arredondamento, etc.).
+    const GENERATION_SYSTEM_PROMPT = buildAIPrompt(globalPrompt, businessRules);
 
     // 2. Fetch Selected Services & Calculate Deterministic Prices
     let calculatedServices: any[] = [];
@@ -306,18 +266,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // 5. Resolve event profile name + regras do tipo de evento (prompt_rules)
+    // 5. Nome do evento (texto livre do formulário)
     let eventTypeName = formData.eventName || '';
-    let eventProfileRules = '';
-    if (formData.eventType && formData.eventType !== 'custom' && formData.eventType !== '') {
-      const { data: profileData } = await supabase
-        .from('event_profiles')
-        .select('name, prompt_rules')
-        .eq('id', formData.eventType)
-        .single();
-      if (profileData?.name) eventTypeName = profileData.name;
-      if (profileData?.prompt_rules) eventProfileRules = profileData.prompt_rules;
-    }
     if (!eventTypeName) eventTypeName = modalidade;
 
     // 5. Save Quote Draft
@@ -341,7 +291,7 @@ export async function POST(request: Request) {
         ai_prompt_used: JSON.stringify({ modalidade, espeto, budget }),
         delivery_fee: deliveryFee,
         delivery_neighborhood: deliveryNeighborhood,
-        ai_rules_snapshot: { modalidades, composition },
+        ai_rules_snapshot: { modalidade },
       }])
       .select()
       .single();
@@ -416,32 +366,16 @@ export async function POST(request: Request) {
 - Demais itens já cobertos (NÃO incluir): ${serviceNames}
 ${budget ? `- Orçamento disponível: R$ ${budget}` : ''}
 
-PARÂMETROS PARA calcular_totais:
-- guests: ${guests}
-- duration_hours: ${duration}
-- modalidade: "${modalidade}"
-- inclui_doces: ${formData.incluiDoces ? 'true' : 'false'}
-- has_cafe: ${hasCafe ? 'true' : 'false'}
-- has_agua_suco_refri: ${hasAguaSucoRefri ? 'true' : 'false'}
-- has_tableware: ${hasTableware ? 'true' : 'false'}
-- has_glass_cup: ${hasGlassCup ? 'true' : 'false'}
-- has_porcelain_cup: ${hasPorcelainCup ? 'true' : 'false'}
-- material: "${materialType}"
-
-Siga os 4 passos: calcular_totais → buscar_produtos → montar cardápio → retornar JSON.
+Calcule as quantidades a partir das REGRAS DE NEGÓCIO (consumo por pessoa conforme a duração, modalidade "${modalidade}", arredondamentos, composição).
+Use buscar_produtos para pegar os produtos reais e seus preços.
 NÃO inclua bebidas (já adicionadas). NÃO inclua: ${serviceNames || 'nenhum serviço externo'}.
-${hasPorcelainCup ? 'XÍCARA DE PORCELANA selecionada: NÃO inclua copos de isopor (substituídos pela xícara).' : ''}
-${hasGlassCup ? 'COPO DE VIDRO selecionado: NÃO inclua copos plásticos (substituídos pelo copo de vidro).' : ''}
 Retorne apenas o JSON.`;
 
     // 8. Call AI with Tool Calling
-    const eventRulesBlock = eventProfileRules
-      ? `## REGRAS DO TIPO DE EVENTO (${eventTypeName})\n${eventProfileRules}`
-      : '';
     const notesBlock = notes
       ? `## OBSERVAÇÕES DO VENDEDOR\nLeve em conta estas observações ao montar o orçamento:\n${notes}`
       : '';
-    const systemPrompt = [GENERATION_SYSTEM_PROMPT, materialsRulesText, eventRulesBlock, notesBlock].filter(Boolean).join('\n\n');
+    const systemPrompt = [GENERATION_SYSTEM_PROMPT, materialsRulesText, notesBlock].filter(Boolean).join('\n\n');
 
     const { text } = await generateText({
       model: aiModel,
@@ -449,31 +383,11 @@ Retorne apenas o JSON.`;
       prompt: userPrompt,
       stopWhen: stepCountIs(15),
       tools: {
-        calcular_totais: tool({
-          description: 'Calcula quantidades exatas de comida e acessórios com base nas regras de cálculo do banco. CHAME ESTE TOOL PRIMEIRO, antes de buscar produtos.',
-          inputSchema: zodSchema(z.object({
-            guests: z.number().describe('Número de convidados'),
-            duration_hours: z.number().describe('Duração do evento em horas'),
-            modalidade: z.string().describe(`Modalidade do cardápio selecionada pelo cliente. Valores válidos: ${modalidadeNames.join(', ')}.`),
-            inclui_doces: z.boolean().describe('Se o cardápio inclui doces'),
-            has_cafe: z.boolean().describe('Se há café nas bebidas do evento'),
-            has_agua_suco_refri: z.boolean().describe('Se há água, suco ou refrigerante nas bebidas do evento'),
-            has_tableware: z.boolean().describe('Se o cliente optou por serviço de louça'),
-            has_glass_cup: z.boolean().describe('Se o serviço "Copo de vidro" foi selecionado — substitui copos plásticos'),
-            has_porcelain_cup: z.boolean().describe('Se o serviço "Xícara de porcelana" foi selecionado — substitui copos de isopor do café'),
-            material: z.string().describe(`Tipo de material para copos e descartáveis. Valores válidos: ${materialNames.join(', ')}.`),
-          })),
-          execute: async (input) => {
-            // Cálculo determinístico extraído para função pura testável (mesmo comportamento)
-            return calcularTotais(input, calcRules, modalidades);
-          },
-        }),
-
         buscar_produtos: tool({
           description: 'Busca produtos e preços atualizados do catálogo. Use tier para filtrar por modalidade econômica/elaborada.',
           inputSchema: zodSchema(z.object({
             categoria: z.string().optional().describe(categoriaDescricao),
-            tier: z.string().optional().describe(`Tier de produto para filtrar. Valores válidos: ${tierNames.join(', ')}. Omita para trazer de todos os tiers.`),
+            tier: z.string().optional().describe('Tier do produto (ex.: "Econômico" ou "Elaborado"). Omita para trazer de todos os tiers.'),
           })),
           execute: async (input) => {
             const { categoria, tier } = input;

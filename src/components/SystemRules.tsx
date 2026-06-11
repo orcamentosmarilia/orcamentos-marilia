@@ -58,8 +58,6 @@ export default function SystemRules() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [calc, setCalc] = useState<any>(null);
-  const [modal, setModal] = useState<any>(null);
   const [stages, setStages] = useState<any[]>([]);
   const [form, setForm] = useState<any>(null);
   const [status, setStatus] = useState<any[]>([]);
@@ -68,12 +66,10 @@ export default function SystemRules() {
 
   async function load() {
     setLoading(true);
-    const keys = ["calculation_rules", "modalidade_config", "pipeline_stages", "quote_form_config", "status_config"];
+    const keys = ["pipeline_stages", "quote_form_config", "status_config"];
     const { data } = await supabase.from("settings").select("key,value").in("key", keys);
     const map: Record<string, any> = {};
     (data || []).forEach((r: any) => { map[r.key] = r.value; });
-    setCalc(map.calculation_rules || {});
-    setModal(map.modalidade_config || { modalidades: [] });
     setStages(Array.isArray(map.pipeline_stages) ? map.pipeline_stages : []);
     setForm(map.quote_form_config || {});
     setStatus(Array.isArray(map.status_config) ? map.status_config : []);
@@ -85,8 +81,6 @@ export default function SystemRules() {
     try {
       const now = new Date().toISOString();
       const rows = [
-        { key: "calculation_rules", value: calc, updated_at: now },
-        { key: "modalidade_config", value: modal, updated_at: now },
         { key: "pipeline_stages", value: stages, updated_at: now },
         { key: "quote_form_config", value: form, updated_at: now },
         { key: "status_config", value: status, updated_at: now },
@@ -98,10 +92,6 @@ export default function SystemRules() {
       toast.error("Erro ao salvar: " + e.message);
     } finally { setSaving(false); }
   }
-
-  // helpers de atualização imutável
-  const setCalcPath = (section: string, key: string, val: any) =>
-    setCalc((p: any) => ({ ...p, [section]: { ...(p?.[section] || {}), [key]: val } }));
 
   if (loading) return <div className="p-8 text-center text-rose-300 font-dm">Carregando regras…</div>;
 
@@ -116,7 +106,8 @@ export default function SystemRules() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div><label className={lbl}>Períodos</label><StrList items={form?.periods || []} onChange={v => setForm((p: any) => ({ ...p, periods: v }))} placeholder="Ex: Manhã" /></div>
-          <div><label className={lbl}>Materiais</label><StrList items={form?.materials || []} onChange={v => setForm((p: any) => ({ ...p, materials: v }))} placeholder="Ex: Louça" /></div>
+          <div><label className={lbl}>Materiais (Descartável/Louça)</label><StrList items={form?.materials || []} onChange={v => setForm((p: any) => ({ ...p, materials: v }))} placeholder="Ex: Louça" /></div>
+          <div className="md:col-span-2"><label className={lbl}>Modalidades de cardápio (o que cada uma significa fica em Regras de Negócio)</label><StrList items={form?.modalidades || []} onChange={v => setForm((p: any) => ({ ...p, modalidades: v }))} placeholder="Ex: Econômico" /></div>
           <div className="md:col-span-2"><label className={lbl}>Fontes de Lead</label><StrList items={form?.lead_sources || []} onChange={v => setForm((p: any) => ({ ...p, lead_sources: v }))} placeholder="Ex: WhatsApp" /></div>
           <div>
             <label className={lbl}>Nº de pessoas (mín / máx / padrão)</label>
@@ -148,58 +139,6 @@ export default function SystemRules() {
               <button onClick={() => setForm((p: any) => ({ ...p, skewer_options: [...(p.skewer_options || []), { value: `opt_${Date.now()}`, label: "", price: 0, qty_per_person: 1 }] }))} className="self-start text-[11px] font-bold text-[var(--color-brand-red)] flex items-center gap-1"><Plus size={13} /> Opção</button>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* CONSUMO POR DURAÇÃO */}
-      <section className={card}>
-        <div className="mb-5 pb-4 border-b border-[var(--color-brand-pink2)]">
-          <h2 className={h2}>Consumo por Duração</h2>
-          <p className={sub}>Unidades de comida por pessoa conforme a duração do evento.</p>
-        </div>
-        <div className="flex flex-col gap-2">
-          <div className="grid grid-cols-[1fr_110px_110px_32px] gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-            <span>Rótulo</span><span>Até (horas)</span><span>Un/pessoa</span><span></span>
-          </div>
-          {(calc?.consumption || []).map((c: any, i: number) => (
-            <div key={i} className="grid grid-cols-[1fr_110px_110px_32px] gap-2 items-center">
-              <Txt value={c.label} onChange={v => setCalc((p: any) => ({ ...p, consumption: p.consumption.map((x: any, j: number) => j === i ? { ...x, label: v } : x) }))} />
-              <Num step={0.5} value={c.max_hours} onChange={v => setCalc((p: any) => ({ ...p, consumption: p.consumption.map((x: any, j: number) => j === i ? { ...x, max_hours: v } : x) }))} />
-              <Num value={c.units_per_person} onChange={v => setCalc((p: any) => ({ ...p, consumption: p.consumption.map((x: any, j: number) => j === i ? { ...x, units_per_person: v } : x) }))} />
-              <button onClick={() => setCalc((p: any) => ({ ...p, consumption: p.consumption.filter((_: any, j: number) => j !== i) }))} className="text-rose-300 hover:text-red-500"><Trash2 size={14} /></button>
-            </div>
-          ))}
-          <button onClick={() => setCalc((p: any) => ({ ...p, consumption: [...(p.consumption || []), { label: "", max_hours: 99, units_per_person: 10 }] }))} className="self-start text-[11px] font-bold text-[var(--color-brand-red)] flex items-center gap-1"><Plus size={13} /> Faixa</button>
-        </div>
-        <div className="mt-5 pt-4 border-t border-[var(--color-brand-pink2)] flex items-center gap-3">
-          <label className={lbl + " !mb-0"}>Arredondar o total de comida ao múltiplo de</label>
-          <div className="w-24"><Num value={calc?.rounding?.food_multiple} onChange={v => setCalcPath("rounding", "food_multiple", v)} /></div>
-        </div>
-      </section>
-
-      {/* MODALIDADES */}
-      <section className={card}>
-        <div className="mb-5 pb-4 border-b border-[var(--color-brand-pink2)]">
-          <h2 className={h2}>Modalidades de Cardápio</h2>
-          <p className={sub}>Divisão por tier (% Econômico/Elaborado) e exigência de crocante.</p>
-        </div>
-        <div className="flex flex-col gap-2">
-          <div className="grid grid-cols-[1fr_100px_100px_110px_32px] gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-            <span>Nome</span><span>% Econ.</span><span>% Elab.</span><span>Crocante</span><span></span>
-          </div>
-          {(modal?.modalidades || []).map((m: any, i: number) => {
-            const upd = (patch: any) => setModal((p: any) => ({ ...p, modalidades: p.modalidades.map((x: any, j: number) => j === i ? { ...x, ...patch } : x) }));
-            return (
-              <div key={i} className="grid grid-cols-[1fr_100px_100px_110px_32px] gap-2 items-center">
-                <Txt value={m.name} onChange={v => upd({ name: v })} />
-                <Num value={Math.round((m.tier_split?.["Econômico"] ?? 0) * 100)} onChange={v => upd({ tier_split: { "Econômico": v / 100, "Elaborado": 1 - v / 100 } })} />
-                <Num value={Math.round((m.tier_split?.["Elaborado"] ?? 0) * 100)} onChange={v => upd({ tier_split: { "Elaborado": v / 100, "Econômico": 1 - v / 100 } })} />
-                <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={!!m.requires_crocante} onChange={e => upd({ requires_crocante: e.target.checked })} /> exige</label>
-                <button onClick={() => setModal((p: any) => ({ ...p, modalidades: p.modalidades.filter((_: any, j: number) => j !== i) }))} className="text-rose-300 hover:text-red-500"><Trash2 size={14} /></button>
-              </div>
-            );
-          })}
-          <button onClick={() => setModal((p: any) => ({ ...p, modalidades: [...(p.modalidades || []), { name: "", tier_split: { "Econômico": 1, "Elaborado": 0 }, requires_crocante: false }] }))} className="self-start text-[11px] font-bold text-[var(--color-brand-red)] flex items-center gap-1"><Plus size={13} /> Modalidade</button>
         </div>
       </section>
 

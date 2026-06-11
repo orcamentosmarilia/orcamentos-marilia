@@ -108,7 +108,7 @@ export default function NovoOrcamento() {
     // Seleções/regras do orçamento — fonte única no banco
     const { data: settingsRows } = await supabase
       .from('settings').select('key,value')
-      .in('key', ['drink_mappings', 'quote_form_config', 'modalidade_config']);
+      .in('key', ['drink_mappings', 'quote_form_config']);
     const sm: Record<string, any> = {};
     (settingsRows || []).forEach((r: any) => { sm[r.key] = r.value; });
 
@@ -117,7 +117,7 @@ export default function NovoOrcamento() {
     const fc = sm.quote_form_config || null;
     setFormConfig(fc);
 
-    const names = (sm.modalidade_config?.modalidades || []).map((m: any) => m.name);
+    const names = Array.isArray(fc?.modalidades) ? fc.modalidades : [];
     setModalidadeNames(names);
 
     // Ajusta os defaults do formulário aos valores configurados.
