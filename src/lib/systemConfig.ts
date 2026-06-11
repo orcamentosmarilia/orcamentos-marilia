@@ -17,7 +17,6 @@
 //  - quote_form_config: tudo que é selecionável na tela de Novo Orçamento (períodos,
 //      materiais, fontes de lead, limites de pessoas/duração, opções de espeto).
 //  - status_config: rótulos/cores/terminalidade dos status.
-//  - ai_exclusions: itens que a IA NÃO deve incluir (serviços externos já calculados).
 // ──────────────────────────────────────────────────────────────────────────
 
 import defaults from "./settingsDefaults.json";
@@ -33,7 +32,6 @@ export const SETTINGS_KEYS = {
   business_rules: "business_rules",
   quote_form_config: "quote_form_config",
   status_config: "status_config",
-  ai_exclusions: "ai_exclusions",
 } as const;
 
 export const SETTINGS_DEFAULTS = defaults;
@@ -45,7 +43,6 @@ export const DEFAULT_DRINK_MAPPINGS = defaults.drink_mappings;
 export const DEFAULT_PIPELINE_STAGES = defaults.pipeline_stages;
 export const DEFAULT_QUOTE_FORM_CONFIG = defaults.quote_form_config;
 export const DEFAULT_STATUS_CONFIG = defaults.status_config;
-export const DEFAULT_AI_EXCLUSIONS = defaults.ai_exclusions;
 
 export type QuoteFormConfig = typeof defaults.quote_form_config;
 export type StatusConfig = typeof defaults.status_config;

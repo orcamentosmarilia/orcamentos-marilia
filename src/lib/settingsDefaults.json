@@ -92,6 +92,5 @@
     { "id": "pago", "label": "Pago", "color": "#2E7D4F", "isTerminal": true },
     { "id": "realizado", "label": "Realizado", "color": "#1565C0", "isTerminal": true },
     { "id": "perdido", "label": "Perdido", "color": "#64748B", "isTerminal": true }
-  ],
-  "ai_exclusions": ["garçom", "louça (aluguel)", "aparador", "jarra", "gelo", "frete"]
+  ]
 }

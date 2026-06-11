@@ -9,7 +9,7 @@ import { calcularTotais } from '@/lib/quoteCalc';
 import { evaluateDependencies } from '@/lib/dependencies';
 import { z } from 'zod';
 
-function buildAIPrompt(modalidades: any[], composition: any | null, globalPrompt: string | null, rules: any[], exclusions: string[]): string {
+function buildAIPrompt(modalidades: any[], composition: any | null, globalPrompt: string | null, rules: any[]): string {
   const modalBlock = modalidades.map(m => {
     const eco = Math.round(((m.tier_split?.Econômico) ?? 1) * 100);
     const ela = Math.round(((m.tier_split?.Elaborado) ?? 0) * 100);
@@ -31,16 +31,11 @@ function buildAIPrompt(modalidades: any[], composition: any | null, globalPrompt
     ? activeRules.map((r: any, i: number) => `${i + 1}. **${r.title}**: ${r.text}`).join('\n')
     : '';
 
-  const exclBlock = (exclusions || []).length > 0
-    ? `## NÃO INCLUA NO CARDÁPIO\nEstes itens são serviços externos já calculados — nunca os inclua: ${exclusions.join(', ')}.`
-    : '';
-
   return [
     SYSTEM_PROMPT_HEADER,
     modalBlock ? `## MODALIDADES\n${modalBlock}` : '',
     compLines ? `## COMPOSIÇÃO MÍNIMA\n${compLines}` : '',
     rulesBlock ? `## REGRAS DE NEGÓCIO\n${rulesBlock}` : '',
-    exclBlock,
     globalPrompt ? `## INSTRUÇÕES ADICIONAIS DO ADMIN\n${globalPrompt}` : '',
     SYSTEM_PROMPT_FOOTER,
   ].filter(Boolean).join('\n\n');
@@ -103,7 +98,7 @@ export async function POST(request: Request) {
     let materialType = formData.material || 'Descartável';
 
     // 1. Fetch all settings from DB (single source of truth — nada hardcoded)
-    const [{ data: configs }, { data: calcRulesData }, { data: modalidadeData }, { data: compositionData }, { data: drinkMappingsData }, { data: businessRulesData }, { data: categoriesData }, { data: formCfgData }, { data: aiExclData }] = await Promise.all([
+    const [{ data: configs }, { data: calcRulesData }, { data: modalidadeData }, { data: compositionData }, { data: drinkMappingsData }, { data: businessRulesData }, { data: categoriesData }, { data: formCfgData }] = await Promise.all([
       supabase.from('system_config').select('key, value'),
       supabase.from('settings').select('value').eq('key', 'calculation_rules').single(),
       supabase.from('settings').select('value').eq('key', 'modalidade_config').single(),
@@ -113,7 +108,6 @@ export async function POST(request: Request) {
       // Categorias reais do catálogo — fonte única da verdade (nada chumbado no código)
       supabase.from('product_categories').select('name').order('name'),
       supabase.from('settings').select('value').eq('key', 'quote_form_config').single(),
-      supabase.from('settings').select('value').eq('key', 'ai_exclusions').single(),
     ]);
 
     // Lista dinâmica de categorias existentes para orientar a IA (sem nomes fixos no código)
@@ -134,7 +128,6 @@ export async function POST(request: Request) {
     const modalidades = (modalidadeData.value as any).modalidades as any[];
     const composition = compositionData?.value as any ?? null;
     const formCfg = (formCfgData?.value as any) ?? {};
-    const aiExclusions: string[] = Array.isArray(aiExclData?.value) ? aiExclData.value : [];
 
     // Mapa de bebidas — fonte única no banco (sem fallback chumbado).
     const drinkMappingsArr: any[] = Array.isArray(drinkMappingsData?.value) ? drinkMappingsData.value : [];
@@ -196,7 +189,7 @@ export async function POST(request: Request) {
 
     // Build system prompt automatically from structured DB settings.
     // composition_rules saiu — composição mínima agora é Regra de Negócio escrita.
-    const GENERATION_SYSTEM_PROMPT = buildAIPrompt(modalidades, null, globalPrompt, businessRules, aiExclusions);
+    const GENERATION_SYSTEM_PROMPT = buildAIPrompt(modalidades, null, globalPrompt, businessRules);
 
     // 2. Fetch Selected Services & Calculate Deterministic Prices
     let calculatedServices: any[] = [];

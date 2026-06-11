@@ -63,13 +63,12 @@ export default function SystemRules() {
   const [stages, setStages] = useState<any[]>([]);
   const [form, setForm] = useState<any>(null);
   const [status, setStatus] = useState<any[]>([]);
-  const [aiExcl, setAiExcl] = useState<string[]>([]);
 
   useEffect(() => { load(); }, []);
 
   async function load() {
     setLoading(true);
-    const keys = ["calculation_rules", "modalidade_config", "pipeline_stages", "quote_form_config", "status_config", "ai_exclusions"];
+    const keys = ["calculation_rules", "modalidade_config", "pipeline_stages", "quote_form_config", "status_config"];
     const { data } = await supabase.from("settings").select("key,value").in("key", keys);
     const map: Record<string, any> = {};
     (data || []).forEach((r: any) => { map[r.key] = r.value; });
@@ -78,7 +77,6 @@ export default function SystemRules() {
     setStages(Array.isArray(map.pipeline_stages) ? map.pipeline_stages : []);
     setForm(map.quote_form_config || {});
     setStatus(Array.isArray(map.status_config) ? map.status_config : []);
-    setAiExcl(Array.isArray(map.ai_exclusions) ? map.ai_exclusions : []);
     setLoading(false);
   }
 
@@ -92,7 +90,6 @@ export default function SystemRules() {
         { key: "pipeline_stages", value: stages, updated_at: now },
         { key: "quote_form_config", value: form, updated_at: now },
         { key: "status_config", value: status, updated_at: now },
-        { key: "ai_exclusions", value: aiExcl, updated_at: now },
       ];
       const { error } = await supabase.from("settings").upsert(rows, { onConflict: "key" });
       if (error) throw error;
@@ -243,15 +240,6 @@ export default function SystemRules() {
             );
           })}
         </div>
-      </section>
-
-      {/* EXCLUSÕES DA IA */}
-      <section className={card}>
-        <div className="mb-5 pb-4 border-b border-[var(--color-brand-pink2)]">
-          <h2 className={h2}>Exclusões da IA</h2>
-          <p className={sub}>Itens que a IA nunca deve incluir no cardápio (serviços externos já calculados).</p>
-        </div>
-        <StrList items={aiExcl} onChange={setAiExcl} placeholder="Ex: garçom" />
       </section>
 
       {/* SALVAR */}

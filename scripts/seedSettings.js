@@ -36,7 +36,7 @@ async function upsert(key, value) {
   const log = [];
 
   // 1. Chaves NOVAS — só inserir se ainda não existem (não sobrescreve edições).
-  for (const key of ["quote_form_config", "status_config", "ai_exclusions"]) {
+  for (const key of ["quote_form_config", "status_config"]) {
     const existing = await getValue(key);
     if (existing === undefined) {
       await upsert(key, defaults[key]);
