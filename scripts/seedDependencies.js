@@ -1,6 +1,6 @@
-// Migra produtos de acessório → categoria "Materiais" + material_type, e semeia
-// as regras de product_dependencies no formato v2 (depende de produto/categoria).
-// Idempotente. Uso: node scripts/seedDependencies.js
+// Garante os produtos de material (Materiais/descartável) e escreve a REGRA EM TEXTO
+// de cada material em product_dependencies.rule_text. Idempotente (atualiza por nome).
+// Uso: node scripts/seedDependencies.js
 const fs = require("fs");
 const path = require("path");
 const { createClient } = require("@supabase/supabase-js");
@@ -14,9 +14,7 @@ for (const line of envText.split(/\r?\n/)) {
 const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
 const BOLO_GRANDE = "f659c761-d155-45dd-a40c-63fcb9b5a39f"; // 1,3kg
-const BOLO_PEQUENO = "0e5aaec1-8a4c-4051-a934-50f0d282b80b"; // 650g
 
-// Produtos de material (descartáveis) a garantir no catálogo.
 const ACCESSORIES = [
   { key: "vasilhame", name: "Vasilhame (descartável)", unit: "unidade", price: 15 },
   { key: "isopor", name: "Copos de isopor", unit: "unidade", price: 0.35 },
@@ -40,71 +38,47 @@ async function ensureProduct(name, unit, price) {
   return data.id;
 }
 
-async function findProductId(name) {
-  const { data } = await sb.from("products").select("id").ilike("name", name).maybeSingle();
-  return data?.id || null;
-}
-
-async function ensureRule(name, rule) {
+// Atualiza (ou cria) a regra por NOME, gravando product_id + rule_text.
+async function ensureRule(name, product_id, rule_text, sort_order) {
+  const payload = { name, product_id, rule_text, sort_order, trigger_type: "always", active: true };
   const { data: ex } = await sb.from("product_dependencies").select("id").eq("name", name).maybeSingle();
   if (ex) {
-    await sb.from("product_dependencies").update(rule).eq("id", ex.id);
-    console.log(`~ regra atualizada: ${name}`);
-    return;
+    await sb.from("product_dependencies").update(payload).eq("id", ex.id);
+    console.log(`~ regra: ${name}`);
+  } else {
+    const { error } = await sb.from("product_dependencies").insert(payload);
+    if (error) throw new Error(`regra ${name}: ${error.message}`);
+    console.log(`+ regra: ${name}`);
   }
-  const { error } = await sb.from("product_dependencies").insert({ name, ...rule });
-  if (error) throw new Error(`regra ${name}: ${error.message}`);
-  console.log(`+ regra criada: ${name}`);
 }
 
 (async () => {
-  // 1. Produtos de material (categoria Materiais + descartavel)
   const id = {};
-  for (const a of ACCESSORIES) {
-    id[a.key] = await ensureProduct(a.name, a.unit, a.price);
-    console.log(`produto ok (Materiais/descartável): ${a.name}`);
-  }
+  for (const a of ACCESSORIES) { id[a.key] = await ensureProduct(a.name, a.unit, a.price); }
+  console.log("produtos de material ok (Materiais/descartável).");
 
-  // Produto "Café" do catálogo (para o "depende de")
-  const cafeId = await findProductId("Café");
-  console.log("produto Café:", cafeId || "(não encontrado — isopor/sachê não vão depender de nada)");
+  await ensureRule("Vasilhame (descartável)", id.vasilhame,
+    "1 unidade a cada 100 unidades de comida do cardápio.", 1);
+  await ensureRule("Guardanapos", id.guardanapo,
+    "4 por pessoa, arredondando para baixo ao múltiplo de 100.", 2);
+  await ensureRule("Copos de isopor", id.isopor,
+    "1 por pessoa, somente quando houver café no orçamento.", 3);
+  await ensureRule("Pazinha", id.pazinha,
+    "1 por evento, somente quando houver café.", 4);
+  await ensureRule("Sachê de açúcar", id.sachet_acucar,
+    "1 a cada 2 pessoas (0,5 por pessoa), somente quando houver café.", 5);
+  await ensureRule("Sachê de adoçante", id.sachet_adocante,
+    "1 a cada 2 pessoas (0,5 por pessoa), somente quando houver café.", 6);
+  await ensureRule("Copos plásticos 300ml", id.copo,
+    "2 por pessoa, arredondando para baixo ao múltiplo de 50. Somente quando houver bebida fria (água/suco/refrigerante) e o material do evento for Descartável.", 7);
+  await ensureRule("Bolo", BOLO_GRANDE,
+    "1 bolo grande (1,3kg) a cada 50 pessoas. Se sobrarem 13 a 37 pessoas, adicione 1 bolo pequeno (650g); se sobrarem 38 ou mais, adicione mais 1 bolo grande.", 8);
 
-  // 2. Regras v2 — limpar campos antigos para evitar resíduo
-  const base = { trigger_type: "always", trigger_value: null, condition_material: null, skip_if_service_id: null, plus_per_bolo: false, rounding_mode: "ceil" };
+  // Remove regras antigas com nomes anteriores (limpeza de duplicatas).
+  const KEEP = ["Vasilhame (descartável)","Guardanapos","Copos de isopor","Pazinha","Sachê de açúcar","Sachê de adoçante","Copos plásticos 300ml","Bolo"];
+  const { data: all } = await sb.from("product_dependencies").select("id,name");
+  const stale = (all || []).filter(r => !KEEP.includes(r.name));
+  if (stale.length) { await sb.from("product_dependencies").delete().in("id", stale.map(r => r.id)); console.log("removidas regras antigas:", stale.map(r=>r.name).join(", ")); }
 
-  await ensureRule("Vasilhame (1 a cada 100 un. de comida)", {
-    ...base, product_id: id.vasilhame, qty_base: "per_food_unit", qty_divisor: 100, rounding_multiple: null,
-    depends_on_product_id: null, depends_on_category: null, cake_rule: null, sort_order: 1,
-  });
-  await ensureRule("Guardanapos (4 por pessoa, múltiplo de 100)", {
-    ...base, product_id: id.guardanapo, qty_base: "per_person", qty_factor: 4, rounding_multiple: 100,
-    depends_on_product_id: null, depends_on_category: null, cake_rule: null, sort_order: 2,
-  });
-  await ensureRule("Copos de isopor (1 por pessoa)", {
-    ...base, product_id: id.isopor, qty_base: "per_person", qty_factor: 1, rounding_multiple: null,
-    depends_on_product_id: cafeId, depends_on_category: null, cake_rule: null, sort_order: 3,
-  });
-  await ensureRule("Pazinha (1 por evento)", {
-    ...base, product_id: id.pazinha, qty_base: "per_event", qty_factor: 1, rounding_multiple: null,
-    depends_on_product_id: cafeId, depends_on_category: null, cake_rule: null, sort_order: 4,
-  });
-  await ensureRule("Sachê de açúcar (0,5 por pessoa)", {
-    ...base, product_id: id.sachet_acucar, qty_base: "per_person", qty_factor: 0.5, rounding_multiple: null,
-    depends_on_product_id: cafeId, depends_on_category: null, cake_rule: null, sort_order: 5,
-  });
-  await ensureRule("Sachê de adoçante (0,5 por pessoa)", {
-    ...base, product_id: id.sachet_adocante, qty_base: "per_person", qty_factor: 0.5, rounding_multiple: null,
-    depends_on_product_id: cafeId, depends_on_category: null, cake_rule: null, sort_order: 6,
-  });
-  await ensureRule("Copos plásticos (2 por pessoa, múltiplo de 50)", {
-    ...base, product_id: id.copo, qty_base: "per_person", qty_factor: 2, rounding_multiple: 50,
-    depends_on_product_id: null, depends_on_category: "Bebidas", cake_rule: null, sort_order: 7,
-  });
-  await ensureRule("Bolo (1 grande/50 pessoas + extra por faixa)", {
-    ...base, product_id: null, qty_base: "per_event", qty_factor: 0, rounding_multiple: null,
-    depends_on_product_id: null, depends_on_category: null, sort_order: 8,
-    cake_rule: { guests_per_large: 50, large_product_id: BOLO_GRANDE, small_product_id: BOLO_PEQUENO, extra_small_min: 13, extra_large_min: 38 },
-  });
-
-  console.log("\nSeed v2 concluído.");
+  console.log("\nSeed v3 (texto) concluído.");
 })().catch((e) => { console.error("ERRO:", e.message); process.exit(1); });

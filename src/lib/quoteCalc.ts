@@ -153,7 +153,7 @@ export function calcularTotais(input: CalcInput, calcRules: any, modalidades: an
       `Tier Econômico: ${economicoUnits} un | Tier Elaborado: ${elaboradoUnits} un.`,
       modalConfig.requires_crocante ? 'OBRIGATÓRIO ao menos 1 pastel crocante (tier Elaborado).' : '',
       inclui_doces ? 'Inclua doces no cardápio dentro do total de unidades.' : 'NÃO inclua doces.',
-      `NÃO inclua acessórios, descartáveis nem bolos — eles são adicionados automaticamente pelo sistema.`,
+      `Os materiais/acessórios e o bolo devem ser incluídos conforme a seção "MATERIAIS E ACESSÓRIOS" (não entram no total de unidades de comida).`,
     ].filter(Boolean),
   };
 }

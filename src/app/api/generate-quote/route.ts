@@ -6,7 +6,6 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createGroq } from '@ai-sdk/groq';
 import { supabase } from '@/lib/supabaseClient';
 import { calcularTotais } from '@/lib/quoteCalc';
-import { evaluateDependencies } from '@/lib/dependencies';
 import { z } from 'zod';
 
 function buildAIPrompt(modalidades: any[], composition: any | null, globalPrompt: string | null, rules: any[]): string {
@@ -157,34 +156,22 @@ export async function POST(request: Request) {
 
     const businessRules: any[] = Array.isArray(businessRulesData?.value) ? businessRulesData.value : [];
 
-    // Dependências (materiais/acessórios/bolo) — carregadas uma vez; usadas no prompt E no motor.
+    // Materiais e acessórios — produto + regra em texto. A IA inclui conforme a regra.
     const { data: depRulesData } = await supabase.from('product_dependencies').select('*').eq('active', true).order('sort_order');
     const depList: any[] = depRulesData || [];
-    const depProductIds = new Set<string>();
-    for (const r of depList) {
-      if (r.product_id) depProductIds.add(r.product_id);
-      if (r.depends_on_product_id) depProductIds.add(r.depends_on_product_id);
-      if (r.cake_rule?.large_product_id) depProductIds.add(r.cake_rule.large_product_id);
-      if (r.cake_rule?.small_product_id) depProductIds.add(r.cake_rule.small_product_id);
-    }
+    const depProductIds = new Set<string>(depList.map((r: any) => r.product_id).filter(Boolean));
     let depProducts: Record<string, any> = {};
     if (depProductIds.size > 0) {
-      const { data: dp } = await supabase.from('products').select('id,name,unit,unit_price,material_type,category').in('id', Array.from(depProductIds));
+      const { data: dp } = await supabase.from('products').select('id,name,unit,unit_price').in('id', Array.from(depProductIds));
       depProducts = Object.fromEntries((dp || []).map((p: any) => [p.id, p]));
     }
-    // Espelho legível das regras de materiais para a IA (evita redigitação manual).
-    const dependsLabel = (r: any): string => {
-      if (r.cake_rule) return 'sempre (regra de bolo, por faixa de pessoas)';
-      if (r.depends_on_product_id) return `quando houver "${depProducts[r.depends_on_product_id]?.name || 'o produto relacionado'}" no orçamento`;
-      if (r.depends_on_category) return `quando houver itens da categoria "${r.depends_on_category}"`;
-      return 'sempre';
-    };
     const materialsRulesText = depList.length
-      ? '## REGRAS DE SERVIÇOS E MATERIAIS\nEstes itens são adicionados AUTOMATICAMENTE pelo sistema — NÃO os inclua no cardápio:\n'
+      ? '## MATERIAIS E ACESSÓRIOS\nInclua estes materiais no orçamento conforme a regra de cada um. Use exatamente o nome e o preço do produto do catálogo:\n'
         + depList.map((r: any) => {
-            const pn = r.cake_rule ? (depProducts[r.cake_rule.large_product_id]?.name || 'Bolo') : (depProducts[r.product_id]?.name || r.name);
-            return `- ${pn}: ${dependsLabel(r)}`;
-          }).join('\n')
+            const p = depProducts[r.product_id];
+            if (!p) return null;
+            return `- ${p.name} (R$ ${p.unit_price}/${p.unit}): ${r.rule_text || 'conforme necessário'}`;
+          }).filter(Boolean).join('\n')
       : '';
 
     // Build system prompt automatically from structured DB settings.
@@ -510,7 +497,7 @@ Retorne apenas o JSON.`;
     // 11. Fetch full product catalog to validate AI output
     const { data: allProducts } = await supabase
       .from('products')
-      .select('id, name, category, unit, unit_price')
+      .select('id, name, category, unit, unit_price, material_type')
       .eq('is_active', true);
 
     const productList = allProducts || [];
@@ -527,35 +514,8 @@ Retorne apenas o JSON.`;
       return partial || null;
     }
 
-    // DEPENDÊNCIAS — acessórios, descartáveis e bolo, como produtos reais (determinístico).
-    const totalsForDeps = calcularTotais({
-      guests, duration_hours: duration, modalidade,
-      inclui_doces: !!formData.incluiDoces,
-      has_cafe: hasCafe, has_agua_suco_refri: hasAguaSucoRefri,
-      has_tableware: hasTableware, has_glass_cup: hasGlassCup, has_porcelain_cup: hasPorcelainCup,
-      material: materialType,
-    }, calcRules, modalidades);
-
-    // Produtos/categorias presentes no orçamento (bebidas + cardápio da IA) — base do "depende de".
-    const prodById: Record<string, any> = Object.fromEntries(productList.map((p: any) => [p.id, p]));
-    const presentProductIds = new Set<string>();
-    for (const s of calculatedServices) { if (s.product_id) presentProductIds.add(s.product_id); }
-    for (const it of (suggestedItems.items || [])) { const m = findProduct(it.description); if (m) presentProductIds.add(m.id); }
-    const presentCategories = new Set<string>();
-    for (const id of presentProductIds) { const c = prodById[id]?.category; if (c) presentCategories.add(c); }
-
-    const depLines = evaluateDependencies(depList, depProducts, {
-      guests, totalFoodUnits: totalsForDeps.total_units,
-      material: materialType,
-      presentProductIds, presentCategories,
-    });
-
-    // Acessórios/descartáveis que a IA possa ter ecoado — ignoramos (já vêm das dependências).
-    const COMPUTED_KEYWORDS = ['vasilhame', 'copo', 'guardanapo', 'pazinha', 'sachê', 'açúcar', 'adoçante', 'bolo'];
-    const isComputed = (desc: string) =>
-      COMPUTED_KEYWORDS.some(kw => desc.toLowerCase().includes(kw));
-
-    // 11. Save All Items
+    // 11. Save All Items — materiais/acessórios agora vêm do próprio cardápio da IA
+    // (conforme as regras de materiais em texto), casados com o produto do catálogo.
     const finalItems = [
       ...calculatedServices.map(srv => ({
         quote_id: quote.id,
@@ -566,17 +526,13 @@ Retorne apenas o JSON.`;
         item_type: srv.item_type ?? 'service',
         product_id: srv.product_id ?? null,
       })),
-      ...depLines.map(d => ({
-        quote_id: quote.id, product_id: d.product_id, description: d.description,
-        quantity: d.quantity, unit: d.unit, unit_price: d.unit_price, item_type: d.item_type,
-      })),
       ...(suggestedItems.items || []).map((item: any) => {
-        // Acessório/bolo ecoado pela IA → ignorar (já adicionado deterministicamente).
-        if (isComputed(item.description)) return null;
         // Match against real DB products
         const match = findProduct(item.description);
         if (match) {
-          return { quote_id: quote.id, product_id: match.id, description: match.name, quantity: item.quantity, unit: match.unit, unit_price: match.unit_price, item_type: 'food' };
+          // material_type marcado → é material/acessório; senão é comida.
+          const tipo = match.material_type ? 'accessory' : 'food';
+          return { quote_id: quote.id, product_id: match.id, description: match.name, quantity: item.quantity, unit: match.unit, unit_price: match.unit_price, item_type: tipo };
         }
         // No match found — skip this item (AI hallucinated a product not in DB)
         console.warn('Produto não encontrado no catálogo, ignorado:', item.description);
