@@ -16,6 +16,7 @@ interface Product {
   is_active: boolean;
   is_multiple_of_25: boolean;
   tier?: 'Econômico' | 'Elaborado' | null;
+  material_type?: 'descartavel' | 'louca' | null;
   image_url?: string;
 }
 
@@ -50,6 +51,7 @@ export default function CatalogoPage() {
     is_active: true,
     is_multiple_of_25: false,
     tier: null as 'Econômico' | 'Elaborado' | null,
+    material_type: null as 'descartavel' | 'louca' | null,
     image_url: "" as string | undefined,
   });
   const [saving, setSaving] = useState(false);
@@ -206,6 +208,7 @@ export default function CatalogoPage() {
         is_active: product.is_active,
         is_multiple_of_25: !!product.is_multiple_of_25,
         tier: product.tier ?? null,
+        material_type: product.material_type ?? null,
         image_url: product.image_url || "",
       });
       setImagePreview(product.image_url || null);
@@ -220,6 +223,7 @@ export default function CatalogoPage() {
         is_active: true,
         is_multiple_of_25: false,
         tier: null,
+        material_type: null,
         image_url: "",
       });
       setImagePreview(null);
@@ -296,6 +300,7 @@ export default function CatalogoPage() {
         is_active: formData.is_active,
         is_multiple_of_25: formData.is_multiple_of_25,
         tier: formData.tier || null,
+        material_type: formData.material_type || null,
         image_url: imageUrl,
       };
 
@@ -873,6 +878,31 @@ export default function CatalogoPage() {
                     ))}
                   </div>
                   <p className="text-[10px] text-rose-400 mt-1">Para salgados e sanduíches. Define se é produto econômico ou elaborado/sofisticado.</p>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-2 block">Tipo de material</label>
+                  <div className="flex gap-2">
+                    {([null, 'descartavel', 'louca'] as const).map(mt => (
+                      <button
+                        key={String(mt)}
+                        type="button"
+                        onClick={() => setFormData({...formData, material_type: mt})}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${
+                          formData.material_type === mt
+                            ? mt === 'descartavel'
+                              ? 'bg-amber-100 border-amber-400 text-amber-700'
+                              : mt === 'louca'
+                              ? 'bg-blue-100 border-blue-400 text-blue-700'
+                              : 'bg-gray-100 border-gray-400 text-gray-600'
+                            : 'border-brand-pink2 text-rose-300 hover:border-rose-300'
+                        }`}
+                      >
+                        {mt === 'descartavel' ? 'Descartável' : mt === 'louca' ? 'Louça' : 'Não é material'}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-rose-400 mt-1">Materiais descartáveis entram só em eventos "Descartável"; louça só em "Louça". Deixe "Não é material" para comida/bebida.</p>
                 </div>
               </form>
             </div>

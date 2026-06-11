@@ -170,30 +170,33 @@ export async function POST(request: Request) {
     const depProductIds = new Set<string>();
     for (const r of depList) {
       if (r.product_id) depProductIds.add(r.product_id);
+      if (r.depends_on_product_id) depProductIds.add(r.depends_on_product_id);
       if (r.cake_rule?.large_product_id) depProductIds.add(r.cake_rule.large_product_id);
       if (r.cake_rule?.small_product_id) depProductIds.add(r.cake_rule.small_product_id);
     }
     let depProducts: Record<string, any> = {};
     if (depProductIds.size > 0) {
-      const { data: dp } = await supabase.from('products').select('id,name,unit,unit_price').in('id', Array.from(depProductIds));
+      const { data: dp } = await supabase.from('products').select('id,name,unit,unit_price,material_type,category').in('id', Array.from(depProductIds));
       depProducts = Object.fromEntries((dp || []).map((p: any) => [p.id, p]));
     }
     // Espelho legível das regras de materiais para a IA (evita redigitação manual).
-    const triggerLabel = (r: any): string => r.cake_rule ? 'sempre (regra de bolo, por faixa de pessoas)' : (({
-      always: 'sempre', has_coffee: 'quando houver café', has_cold_drink: 'quando houver bebida fria',
-      drink: `quando houver a bebida "${r.trigger_value}"`, category: `quando houver a categoria "${r.trigger_value}"`,
-      service: 'quando o serviço relacionado for selecionado', material: `quando o material for "${r.trigger_value}"`,
-    } as Record<string, string>)[r.trigger_type] || r.trigger_type);
+    const dependsLabel = (r: any): string => {
+      if (r.cake_rule) return 'sempre (regra de bolo, por faixa de pessoas)';
+      if (r.depends_on_product_id) return `quando houver "${depProducts[r.depends_on_product_id]?.name || 'o produto relacionado'}" no orçamento`;
+      if (r.depends_on_category) return `quando houver itens da categoria "${r.depends_on_category}"`;
+      return 'sempre';
+    };
     const materialsRulesText = depList.length
       ? '## REGRAS DE SERVIÇOS E MATERIAIS\nEstes itens são adicionados AUTOMATICAMENTE pelo sistema — NÃO os inclua no cardápio:\n'
         + depList.map((r: any) => {
             const pn = r.cake_rule ? (depProducts[r.cake_rule.large_product_id]?.name || 'Bolo') : (depProducts[r.product_id]?.name || r.name);
-            return `- ${pn}: ${triggerLabel(r)}`;
+            return `- ${pn}: ${dependsLabel(r)}`;
           }).join('\n')
       : '';
 
-    // Build system prompt automatically from structured DB settings
-    const GENERATION_SYSTEM_PROMPT = buildAIPrompt(modalidades, composition, globalPrompt, businessRules, aiExclusions);
+    // Build system prompt automatically from structured DB settings.
+    // composition_rules saiu — composição mínima agora é Regra de Negócio escrita.
+    const GENERATION_SYSTEM_PROMPT = buildAIPrompt(modalidades, null, globalPrompt, businessRules, aiExclusions);
 
     // 2. Fetch Selected Services & Calculate Deterministic Prices
     let calculatedServices: any[] = [];
@@ -206,13 +209,8 @@ export async function POST(request: Request) {
       if (servicesData) {
         hasTableware = servicesData.some(srv => srv.is_tableware === true);
         if (hasTableware) materialType = 'Louça';
-        // Substituição de copos — palavras-chave configuráveis (quote_form_config.cup_replacements).
-        const cupCfg = formCfg.cup_replacements || {};
-        const glassKw: string[] = Array.isArray(cupCfg.glass) ? cupCfg.glass : [];
-        const porcelainKw: string[] = Array.isArray(cupCfg.porcelain) ? cupCfg.porcelain : [];
-        const nameMatches = (name: string, kws: string[]) => kws.some(k => name.toLowerCase().includes(k.toLowerCase()));
-        hasGlassCup = servicesData.some(srv => nameMatches(srv.name || '', glassKw));
-        hasPorcelainCup = servicesData.some(srv => nameMatches(srv.name || '', porcelainKw));
+        // Substituição descartável×louça agora sai do tipo do material do produto
+        // vs o material do evento (lib/dependencies). Sem detecção por palavra-chave.
 
         servicesData.forEach(srv => {
           let quantity = 1;
@@ -545,13 +543,18 @@ Retorne apenas o JSON.`;
       material: materialType,
     }, calcRules, modalidades);
 
+    // Produtos/categorias presentes no orçamento (bebidas + cardápio da IA) — base do "depende de".
+    const prodById: Record<string, any> = Object.fromEntries(productList.map((p: any) => [p.id, p]));
+    const presentProductIds = new Set<string>();
+    for (const s of calculatedServices) { if (s.product_id) presentProductIds.add(s.product_id); }
+    for (const it of (suggestedItems.items || [])) { const m = findProduct(it.description); if (m) presentProductIds.add(m.id); }
+    const presentCategories = new Set<string>();
+    for (const id of presentProductIds) { const c = prodById[id]?.category; if (c) presentCategories.add(c); }
+
     const depLines = evaluateDependencies(depList, depProducts, {
       guests, totalFoodUnits: totalsForDeps.total_units,
-      hasCoffee: hasCafe, hasColdDrink: hasAguaSucoRefri,
-      selectedDrinkIds: new Set<string>(formData.drinks || []),
-      presentCategories: new Set<string>(),
-      selectedServiceIds: new Set<string>(selectedServiceIds),
       material: materialType,
+      presentProductIds, presentCategories,
     });
 
     // Acessórios/descartáveis que a IA possa ter ecoado — ignoramos (já vêm das dependências).

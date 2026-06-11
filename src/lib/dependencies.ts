@@ -1,14 +1,15 @@
 // ──────────────────────────────────────────────────────────────────────────
-// Engine de DEPENDÊNCIAS de produtos (pura e testável).
-// Avalia as regras de product_dependencies contra o contexto do evento e
-// devolve as linhas (produtos reais) a adicionar ao orçamento.
-// Substitui o bloco hardcoded de acessórios/dependências do quoteCalc.ts.
+// Engine de DEPENDÊNCIAS de produtos — v2 (simples e determinística).
+// Cada regra adiciona um PRODUTO numa quantidade. Aplica quando:
+//   (a) não tem "depende de", OU o produto/categoria de quem depende está no
+//       orçamento; E
+//   (b) o produto não é material, OU seu material_type bate com o material do
+//       evento (descartável × louça sai daqui — sem regra de substituição).
+// Substitui o bloco hardcoded antigo. Bolo continua via cake_rule.
 // ──────────────────────────────────────────────────────────────────────────
 
-export type TriggerType =
-  | "always" | "has_coffee" | "has_cold_drink" | "drink" | "category" | "service" | "material";
 export type QtyBase = "per_person" | "per_food_unit" | "per_event";
-export type RoundingMode = "none" | "round" | "ceil" | "floor_multiple";
+export type MaterialType = "descartavel" | "louca";
 
 export interface CakeRule {
   guests_per_large: number;
@@ -23,17 +24,13 @@ export interface DependencyRule {
   name: string;
   active: boolean;
   sort_order?: number;
-  trigger_type: TriggerType;
-  trigger_value?: string | null;
   product_id?: string | null;
   qty_base: QtyBase;
   qty_factor: number;
   qty_divisor?: number | null;
-  rounding_mode: RoundingMode;
-  rounding_multiple?: number | null;
-  plus_per_bolo?: boolean;
-  condition_material?: string | null;
-  skip_if_service_id?: string | null;
+  rounding_multiple?: number | null; // se setado, arredonda ↓ ao múltiplo; senão, ↑ ao inteiro
+  depends_on_product_id?: string | null;
+  depends_on_category?: string | null;
   cake_rule?: CakeRule | null;
 }
 
@@ -42,18 +39,17 @@ export interface ResolvedProduct {
   name: string;
   unit: string;
   unit_price: number;
+  material_type?: string | null;
+  category?: string | null;
 }
 
 export interface DepContext {
   guests: number;
   totalFoodUnits: number;
   totalBolos: number;
-  hasCoffee: boolean;
-  hasColdDrink: boolean;
-  selectedDrinkIds: Set<string>;
-  presentCategories: Set<string>;
-  selectedServiceIds: Set<string>;
-  material: string;
+  material: string; // material do evento: "Descartável" | "Louça"
+  presentProductIds: Set<string>;   // produtos presentes no orçamento (bebidas, cardápio, serviços)
+  presentCategories: Set<string>;   // categorias presentes no orçamento
 }
 
 export interface DepLine {
@@ -66,24 +62,23 @@ export interface DepLine {
   rule_name: string;
 }
 
-function triggerApplies(rule: DependencyRule, ctx: DepContext): boolean {
-  switch (rule.trigger_type) {
-    case "always": return true;
-    case "has_coffee": return ctx.hasCoffee;
-    case "has_cold_drink": return ctx.hasColdDrink;
-    case "drink": return !!rule.trigger_value && ctx.selectedDrinkIds.has(rule.trigger_value);
-    case "category": return !!rule.trigger_value && ctx.presentCategories.has(rule.trigger_value);
-    case "service": return !!rule.trigger_value && ctx.selectedServiceIds.has(rule.trigger_value);
-    case "material": return rule.trigger_value === ctx.material;
-    default: return false;
-  }
+// "Descartável"/"Louça" do evento → token do material_type do produto.
+function eventMaterialToken(material: string): MaterialType | null {
+  const m = (material || "").toLowerCase();
+  if (m.includes("louç") || m.includes("louc")) return "louca";
+  if (m.includes("descart")) return "descartavel";
+  return null;
 }
 
-function ruleApplies(rule: DependencyRule, ctx: DepContext): boolean {
-  if (!rule.active) return false;
-  if (!triggerApplies(rule, ctx)) return false;
-  if (rule.condition_material && ctx.material !== rule.condition_material) return false;
-  if (rule.skip_if_service_id && ctx.selectedServiceIds.has(rule.skip_if_service_id)) return false;
+function ruleApplies(rule: DependencyRule, product: ResolvedProduct, ctx: DepContext): boolean {
+  // (a) "depende de" — produto OU categoria presente no orçamento
+  if (rule.depends_on_product_id && !ctx.presentProductIds.has(rule.depends_on_product_id)) return false;
+  if (rule.depends_on_category && !ctx.presentCategories.has(rule.depends_on_category)) return false;
+  // (b) tipo de material vs material do evento
+  if (product.material_type) {
+    const ev = eventMaterialToken(ctx.material);
+    if (ev && product.material_type !== ev) return false;
+  }
   return true;
 }
 
@@ -93,22 +88,12 @@ function ruleQuantity(rule: DependencyRule, ctx: DepContext): number {
   else if (rule.qty_base === "per_food_unit") base = ctx.totalFoodUnits / (rule.qty_divisor || 1);
   else base = rule.qty_factor; // per_event
 
-  let qty: number;
-  switch (rule.rounding_mode) {
-    case "round": qty = Math.round(base); break;
-    case "ceil": qty = Math.ceil(base); break;
-    case "floor_multiple": {
-      const m = rule.rounding_multiple || 1;
-      qty = Math.floor(base / m) * m; break;
-    }
-    default: qty = base;
+  if (rule.rounding_multiple && rule.rounding_multiple > 1) {
+    return Math.floor(base / rule.rounding_multiple) * rule.rounding_multiple;
   }
-  if (rule.plus_per_bolo) qty += ctx.totalBolos;
-  return qty;
+  return Math.ceil(base);
 }
 
-// Calcula as linhas do BOLO a partir de uma regra com cake_rule.
-// Retorna as linhas e o total de bolos (para alimentar plus_per_bolo de outras regras).
 export function computeCakeLines(
   cake: CakeRule,
   products: Record<string, ResolvedProduct>,
@@ -134,7 +119,7 @@ export function computeCakeLines(
   return { lines, totalBolos: totalLarge + extraSmall };
 }
 
-// Avalia TODAS as regras. Primeiro o bolo (para saber totalBolos), depois as demais.
+// Avalia TODAS as regras: bolo primeiro (para totalBolos), depois as demais.
 export function evaluateDependencies(
   rules: DependencyRule[],
   products: Record<string, ResolvedProduct>,
@@ -143,22 +128,19 @@ export function evaluateDependencies(
   const cakeRules = rules.filter(r => r.active && r.cake_rule);
   const normalRules = rules.filter(r => r.active && !r.cake_rule);
 
-  // 1. Bolo
   let totalBolos = 0;
-  const cakeLines: DepLine[] = [];
+  const out: DepLine[] = [];
   for (const r of cakeRules) {
     const { lines, totalBolos: n } = computeCakeLines(r.cake_rule as CakeRule, products, ctxBase.guests);
-    cakeLines.push(...lines);
+    out.push(...lines);
     totalBolos += n;
   }
 
-  // 2. Demais regras (com totalBolos no contexto)
   const ctx: DepContext = { ...ctxBase, totalBolos };
-  const out: DepLine[] = [...cakeLines];
   for (const rule of normalRules) {
-    if (!ruleApplies(rule, ctx)) continue;
     const product = rule.product_id ? products[rule.product_id] : undefined;
-    if (!product) continue; // regra sem produto válido é ignorada
+    if (!product) continue;
+    if (!ruleApplies(rule, product, ctx)) continue;
     const quantity = ruleQuantity(rule, ctx);
     if (quantity <= 0) continue;
     out.push({ product_id: product.id, description: product.name, quantity, unit: product.unit, unit_price: product.unit_price, item_type: "accessory", rule_name: rule.name });

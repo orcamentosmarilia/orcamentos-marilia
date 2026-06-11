@@ -60,7 +60,6 @@ export default function SystemRules() {
 
   const [calc, setCalc] = useState<any>(null);
   const [modal, setModal] = useState<any>(null);
-  const [comp, setComp] = useState<any>(null);
   const [stages, setStages] = useState<any[]>([]);
   const [form, setForm] = useState<any>(null);
   const [status, setStatus] = useState<any[]>([]);
@@ -70,13 +69,12 @@ export default function SystemRules() {
 
   async function load() {
     setLoading(true);
-    const keys = ["calculation_rules", "modalidade_config", "composition_rules", "pipeline_stages", "quote_form_config", "status_config", "ai_exclusions"];
+    const keys = ["calculation_rules", "modalidade_config", "pipeline_stages", "quote_form_config", "status_config", "ai_exclusions"];
     const { data } = await supabase.from("settings").select("key,value").in("key", keys);
     const map: Record<string, any> = {};
     (data || []).forEach((r: any) => { map[r.key] = r.value; });
     setCalc(map.calculation_rules || {});
     setModal(map.modalidade_config || { modalidades: [] });
-    setComp(map.composition_rules || {});
     setStages(Array.isArray(map.pipeline_stages) ? map.pipeline_stages : []);
     setForm(map.quote_form_config || {});
     setStatus(Array.isArray(map.status_config) ? map.status_config : []);
@@ -91,7 +89,6 @@ export default function SystemRules() {
       const rows = [
         { key: "calculation_rules", value: calc, updated_at: now },
         { key: "modalidade_config", value: modal, updated_at: now },
-        { key: "composition_rules", value: comp, updated_at: now },
         { key: "pipeline_stages", value: stages, updated_at: now },
         { key: "quote_form_config", value: form, updated_at: now },
         { key: "status_config", value: status, updated_at: now },
@@ -154,14 +151,6 @@ export default function SystemRules() {
               <button onClick={() => setForm((p: any) => ({ ...p, skewer_options: [...(p.skewer_options || []), { value: `opt_${Date.now()}`, label: "", price: 0, qty_per_person: 1 }] }))} className="self-start text-[11px] font-bold text-[var(--color-brand-red)] flex items-center gap-1"><Plus size={13} /> Opção</button>
             </div>
           </div>
-          <div>
-            <label className={lbl}>Copo de vidro — palavras no nome do serviço</label>
-            <StrList items={form?.cup_replacements?.glass || []} onChange={v => setForm((p: any) => ({ ...p, cup_replacements: { ...(p.cup_replacements || {}), glass: v } }))} placeholder="Ex: vidro" />
-          </div>
-          <div>
-            <label className={lbl}>Xícara de porcelana — palavras no nome do serviço</label>
-            <StrList items={form?.cup_replacements?.porcelain || []} onChange={v => setForm((p: any) => ({ ...p, cup_replacements: { ...(p.cup_replacements || {}), porcelain: v } }))} placeholder="Ex: porcelana" />
-          </div>
         </div>
       </section>
 
@@ -185,18 +174,10 @@ export default function SystemRules() {
           ))}
           <button onClick={() => setCalc((p: any) => ({ ...p, consumption: [...(p.consumption || []), { label: "", max_hours: 99, units_per_person: 10 }] }))} className="self-start text-[11px] font-bold text-[var(--color-brand-red)] flex items-center gap-1"><Plus size={13} /> Faixa</button>
         </div>
-      </section>
-
-      {/* ARREDONDAMENTOS */}
-      <section className={card}>
-        <div className="mb-5 pb-4 border-b border-[var(--color-brand-pink2)]">
-          <h2 className={h2}>Arredondamentos</h2>
-          <p className={sub}>Múltiplos de arredondamento de comida, copos e guardanapos.</p>
+        <div className="mt-5 pt-4 border-t border-[var(--color-brand-pink2)] flex items-center gap-3">
+          <label className={lbl + " !mb-0"}>Arredondar o total de comida ao múltiplo de</label>
+          <div className="w-24"><Num value={calc?.rounding?.food_multiple} onChange={v => setCalcPath("rounding", "food_multiple", v)} /></div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div><label className={lbl}>Comida (múltiplo)</label><Num value={calc?.rounding?.food_multiple} onChange={v => setCalcPath("rounding", "food_multiple", v)} /></div>
-        </div>
-        <p className="text-[11px] text-rose-400 mt-3">Acessórios, descartáveis e bolo agora são configurados em <b>Dependências de Produtos</b> (abaixo).</p>
       </section>
 
       {/* MODALIDADES */}
@@ -222,33 +203,6 @@ export default function SystemRules() {
             );
           })}
           <button onClick={() => setModal((p: any) => ({ ...p, modalidades: [...(p.modalidades || []), { name: "", tier_split: { "Econômico": 1, "Elaborado": 0 }, requires_crocante: false }] }))} className="self-start text-[11px] font-bold text-[var(--color-brand-red)] flex items-center gap-1"><Plus size={13} /> Modalidade</button>
-        </div>
-      </section>
-
-      {/* COMPOSIÇÃO MÍNIMA */}
-      <section className={card}>
-        <div className="mb-5 pb-4 border-b border-[var(--color-brand-pink2)]">
-          <h2 className={h2}>Composição Mínima</h2>
-          <p className={sub}>Itens/formatos/sabores obrigatórios e restrições por período.</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div><label className={lbl}>Itens obrigatórios</label><StrList items={comp?.mandatory_items || []} onChange={v => setComp((p: any) => ({ ...p, mandatory_items: v }))} /></div>
-          <div><label className={lbl}>Formatos obrigatórios</label><StrList items={comp?.mandatory_formats || []} onChange={v => setComp((p: any) => ({ ...p, mandatory_formats: v }))} /></div>
-          <div><label className={lbl}>Sabores obrigatórios</label><StrList items={comp?.mandatory_flavors || []} onChange={v => setComp((p: any) => ({ ...p, mandatory_flavors: v }))} /></div>
-        </div>
-        <label className="flex items-center gap-2 text-sm mt-4 font-dm text-[#5C1F2E]">
-          <input type="checkbox" checked={!!comp?.include_sandwich} onChange={e => setComp((p: any) => ({ ...p, include_sandwich: e.target.checked }))} /> Incluir sempre ao menos 1 sanduíche
-        </label>
-        <div className="mt-4">
-          <label className={lbl}>Restrições por período</label>
-          <div className="flex flex-col gap-2">
-            {Object.entries(comp?.period_restrictions || {}).map(([period, text]: any) => (
-              <div key={period} className="grid grid-cols-[110px_1fr] gap-2 items-start">
-                <span className="text-xs font-bold text-rose-500 pt-2">{period}</span>
-                <textarea value={text} rows={2} onChange={e => setComp((p: any) => ({ ...p, period_restrictions: { ...p.period_restrictions, [period]: e.target.value } }))} className={inp} />
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
