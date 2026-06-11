@@ -59,13 +59,18 @@ export default function SystemRules() {
   const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState<any>(null);
+  const [products, setProducts] = useState<{ id: string; name: string; category: string }[]>([]);
 
   useEffect(() => { load(); }, []);
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase.from("settings").select("value").eq("key", "quote_form_config").single();
+    const [{ data }, { data: prods }] = await Promise.all([
+      supabase.from("settings").select("value").eq("key", "quote_form_config").single(),
+      supabase.from("products").select("id,name,category").eq("is_active", true).order("name"),
+    ]);
     setForm(data?.value || {});
+    setProducts(prods || []);
     setLoading(false);
   }
 
@@ -99,35 +104,26 @@ export default function SystemRules() {
           <div><label className={lbl}>Materiais (Descartável/Louça)</label><StrList items={form?.materials || []} onChange={v => setForm((p: any) => ({ ...p, materials: v }))} placeholder="Ex: Louça" /></div>
           <div className="md:col-span-2"><label className={lbl}>Modalidades de cardápio (o que cada uma significa fica em Regras de Negócio)</label><StrList items={form?.modalidades || []} onChange={v => setForm((p: any) => ({ ...p, modalidades: v }))} placeholder="Ex: Econômico" /></div>
           <div className="md:col-span-2"><label className={lbl}>Fontes de Lead</label><StrList items={form?.lead_sources || []} onChange={v => setForm((p: any) => ({ ...p, lead_sources: v }))} placeholder="Ex: WhatsApp" /></div>
-          <div>
-            <label className={lbl}>Nº de pessoas (mín / máx / padrão)</label>
-            <div className="grid grid-cols-3 gap-2">
-              <Num value={form?.guests?.min} onChange={n => setForm((p: any) => ({ ...p, guests: { ...p.guests, min: n } }))} />
-              <Num value={form?.guests?.max} onChange={n => setForm((p: any) => ({ ...p, guests: { ...p.guests, max: n } }))} />
-              <Num value={form?.guests?.default} onChange={n => setForm((p: any) => ({ ...p, guests: { ...p.guests, default: n } }))} />
-            </div>
-          </div>
-          <div>
-            <label className={lbl}>Duração h (mín / máx / padrão)</label>
-            <div className="grid grid-cols-3 gap-2">
-              <Num step={0.5} value={form?.duration?.min} onChange={n => setForm((p: any) => ({ ...p, duration: { ...p.duration, min: n } }))} />
-              <Num step={0.5} value={form?.duration?.max} onChange={n => setForm((p: any) => ({ ...p, duration: { ...p.duration, max: n } }))} />
-              <Num step={0.5} value={form?.duration?.default} onChange={n => setForm((p: any) => ({ ...p, duration: { ...p.duration, default: n } }))} />
-            </div>
-          </div>
           <div className="md:col-span-2">
-            <label className={lbl}>Opções de Espeto (rótulo / preço / qtd por pessoa)</label>
-            <div className="flex flex-col gap-2">
-              {(form?.skewer_options || []).map((s: any, i: number) => (
-                <div key={i} className="grid grid-cols-[1fr_90px_90px_32px] gap-2 items-center">
-                  <Txt value={s.label} onChange={v => setForm((p: any) => ({ ...p, skewer_options: p.skewer_options.map((x: any, j: number) => j === i ? { ...x, label: v } : x) }))} />
-                  <Num step={0.5} value={s.price} onChange={v => setForm((p: any) => ({ ...p, skewer_options: p.skewer_options.map((x: any, j: number) => j === i ? { ...x, price: v } : x) }))} />
-                  <Num step={0.5} value={s.qty_per_person} onChange={v => setForm((p: any) => ({ ...p, skewer_options: p.skewer_options.map((x: any, j: number) => j === i ? { ...x, qty_per_person: v } : x) }))} />
-                  <button onClick={() => setForm((p: any) => ({ ...p, skewer_options: p.skewer_options.filter((_: any, j: number) => j !== i) }))} className="text-rose-300 hover:text-red-500"><Trash2 size={14} /></button>
-                </div>
-              ))}
-              <button onClick={() => setForm((p: any) => ({ ...p, skewer_options: [...(p.skewer_options || []), { value: `opt_${Date.now()}`, label: "", price: 0, qty_per_person: 1 }] }))} className="self-start text-[11px] font-bold text-[var(--color-brand-red)] flex items-center gap-1"><Plus size={13} /> Opção</button>
+            <label className={lbl}>Produtos de Espeto (escolha quais produtos aparecem como opção de espeto)</label>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {(form?.skewer_products || []).map((id: string) => {
+                const p = products.find(x => x.id === id);
+                return (
+                  <span key={id} className="flex items-center gap-1.5 bg-rose-50 border border-rose-100 rounded-full pl-3 pr-1 py-1 text-xs font-dm text-rose-600">
+                    {p?.name || "(produto removido)"}
+                    <button onClick={() => setForm((pp: any) => ({ ...pp, skewer_products: (pp.skewer_products || []).filter((x: string) => x !== id) }))} className="text-rose-300 hover:text-red-500"><Trash2 size={12} /></button>
+                  </span>
+                );
+              })}
+              {(!form?.skewer_products || form.skewer_products.length === 0) && <span className="text-xs text-rose-300 italic">Nenhum produto de espeto associado.</span>}
             </div>
+            <select value="" onChange={e => { if (e.target.value) setForm((p: any) => ({ ...p, skewer_products: [...(p.skewer_products || []), e.target.value] })); }} className={inp}>
+              <option value="">+ Adicionar produto de espeto…</option>
+              {products.filter(p => !(form?.skewer_products || []).includes(p.id)).map(p => (
+                <option key={p.id} value={p.id}>{p.name} ({p.category})</option>
+              ))}
+            </select>
           </div>
         </div>
       </section>

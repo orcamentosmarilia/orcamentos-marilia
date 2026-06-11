@@ -80,12 +80,6 @@
     "materials": ["Descartável", "Louça"],
     "modalidades": ["Econômico", "Meio Termo", "Elaborado"],
     "lead_sources": ["WhatsApp", "Instagram", "Google", "Indicação", "Site", "Evento Anterior", "Outros"],
-    "guests": { "min": 1, "max": 2000, "default": 50 },
-    "duration": { "min": 0.5, "max": 12, "default": 3 },
-    "skewer_options": [
-      { "value": "nao", "label": "Não", "price": 0, "qty_per_person": 0 },
-      { "value": "3frutas", "label": "Mini Espeto — 3 frutas", "price": 3.5, "qty_per_person": 1 },
-      { "value": "4frutas", "label": "Espeto — 4 frutas", "price": 4.5, "qty_per_person": 1 }
-    ]
+    "skewer_products": []
   }
 }

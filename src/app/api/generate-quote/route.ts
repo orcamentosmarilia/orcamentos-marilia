@@ -339,11 +339,15 @@ export async function POST(request: Request) {
     const hasCafe = (formData.drinks || []).some((d: string) => coffeeDrinkIds.has(d));
     const hasAguaSucoRefri = (formData.drinks || []).some((d: string) => coldDrinkIds.has(d));
 
-    // Espeto — descrição vem das opções configuradas (quote_form_config.skewer_options).
-    const espetoOpt = (formCfg.skewer_options || []).find((o: any) => o.value === espeto);
-    const espetoDesc = (!espetoOpt || espetoOpt.value === 'nao' || !espetoOpt.qty_per_person)
-      ? 'Não'
-      : `${espetoOpt.label} (${espetoOpt.qty_per_person} por pessoa)`;
+    // Espeto — produto associado (quote_form_config.skewer_products). 1 por pessoa, já incluído.
+    let espetoDesc = 'Não';
+    if (espeto && espeto !== 'nao') {
+      const { data: espProd } = await supabase.from('products').select('id,name,unit,unit_price').eq('id', espeto).single();
+      if (espProd) {
+        calculatedServices.push({ description: espProd.name, quantity: guests, unit: espProd.unit, unit_price: espProd.unit_price, product_id: espProd.id, is_service: false, item_type: 'food' });
+        espetoDesc = `${espProd.name} (1 por pessoa, já incluído — não repetir)`;
+      }
+    }
 
     const drinkNames = (formData.drinks || [])
       .map((id: string) => DRINK_PRODUCT_MAP[id])

@@ -82,6 +82,7 @@ export default function NovoOrcamento() {
   });
 
   const [availableMaterials, setAvailableMaterials] = useState<{ id: string; name: string; unit: string; unit_price: number }[]>([]);
+  const [skewerProducts, setSkewerProducts] = useState<{ id: string; name: string; unit: string; unit_price: number }[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -117,6 +118,13 @@ export default function NovoOrcamento() {
     const fc = sm.quote_form_config || null;
     setFormConfig(fc);
 
+    // Produtos de espeto associados (config)
+    const espetoIds: string[] = Array.isArray(fc?.skewer_products) ? fc.skewer_products : [];
+    if (espetoIds.length > 0) {
+      const { data: esp } = await supabase.from('products').select('id,name,unit,unit_price').in('id', espetoIds).eq('is_active', true);
+      setSkewerProducts(esp || []);
+    } else setSkewerProducts([]);
+
     const names = Array.isArray(fc?.modalidades) ? fc.modalidades : [];
     setModalidadeNames(names);
 
@@ -126,8 +134,6 @@ export default function NovoOrcamento() {
       leadSource: fc?.lead_sources?.includes(prev.leadSource) ? prev.leadSource : (fc?.lead_sources?.[0] ?? prev.leadSource),
       period: fc?.periods?.includes(prev.period) ? prev.period : (fc?.periods?.[0] ?? prev.period),
       modalidade: names.includes(prev.modalidade) ? prev.modalidade : (names[0] ?? prev.modalidade),
-      guests: prev.guests || (fc?.guests?.default != null ? String(fc.guests.default) : prev.guests),
-      duration: prev.duration || (fc?.duration?.default != null ? String(fc.duration.default) : prev.duration),
     }));
   }
 
@@ -669,28 +675,27 @@ export default function NovoOrcamento() {
                   </div>
                 </div>
 
+                {skewerProducts.length > 0 && (
                 <div>
                   <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-3 block">Espeto de Frutas</label>
                   <div className="flex flex-wrap gap-3">
-                    {(formConfig?.skewer_options || []).map((opt: any) => ({
-                      value: opt.value,
-                      label: opt.price > 0 ? `${opt.label} (R$ ${Number(opt.price).toFixed(2).replace('.', ',')}/un)` : opt.label,
-                    })).map((opt: any) => (
+                    {[{ id: "nao", name: "Não", unit_price: 0 }, ...skewerProducts].map((opt: any) => (
                       <button
-                        key={opt.value}
+                        key={opt.id}
                         type="button"
-                        onClick={() => setFormData(prev => ({ ...prev, espeto: opt.value }))}
+                        onClick={() => setFormData(prev => ({ ...prev, espeto: opt.id }))}
                         className={`px-4 py-2.5 rounded-full border text-sm font-medium transition-colors focus:outline-none ${
-                          formData.espeto === opt.value
+                          formData.espeto === opt.id
                             ? "bg-[var(--color-brand-wine)] text-white border-[var(--color-brand-wine)]"
                             : "border-[var(--color-brand-pink2)] text-[var(--color-brand-gray)] hover:bg-[var(--color-brand-pink)] hover:border-[var(--color-brand-red)] hover:text-[var(--color-brand-wine)]"
                         }`}
                       >
-                        {opt.label}
+                        {opt.name}{opt.unit_price > 0 ? ` (R$ ${Number(opt.unit_price).toFixed(2).replace('.', ',')})` : ""}
                       </button>
                     ))}
                   </div>
                 </div>
+                )}
 
                 <div>
                   <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-1.5 block">Orçamento Disponível (opcional)</label>
