@@ -41,16 +41,17 @@ const SYSTEM_PROMPT_HEADER = `Você é o gerador de orçamentos da Pastelaria Ma
 Monte o cardápio e as quantidades SEGUINDO as REGRAS DE NEGÓCIO abaixo (consumo por pessoa conforme a duração, modalidade do cardápio, arredondamentos, composição etc.).
 
 Passos OBRIGATÓRIOS:
-1. buscar_produtos: PRIMEIRO veja os produtos REAIS do catálogo. A modalidade define o TIER permitido: Econômico → buscar_produtos(tier="Econômico"); Elaborado → tier="Elaborado"; Meio Termo → busque os dois. Chame quantas vezes precisar (por categoria também).
-2. Escolha SOMENTE entre os produtos que apareceram no buscar_produtos. NÃO invente produtos.
-3. Calcule as quantidades pelas REGRAS DE NEGÓCIO (convidados, duração).
-4. Inclua os MATERIAIS E ACESSÓRIOS conforme a seção correspondente.
-5. Retorne o JSON final.
+1. Leia a seção "CATÁLOGO DISPONÍVEL" abaixo — são os ÚNICOS produtos que existem.
+2. Cruze com as REGRAS DE NEGÓCIO: filtre pelo TIER da modalidade (Econômico → só tier "Econômico"; Elaborado → só "Elaborado"; Meio Termo → ambos). Produtos "sem tier" (bolos, tortas) valem para qualquer modalidade.
+3. Escolha SOMENTE produtos que estão na lista. É PROIBIDO sugerir item que não esteja no CATÁLOGO DISPONÍVEL.
+4. Calcule as quantidades pelas REGRAS DE NEGÓCIO (convidados, duração).
+5. Inclua os MATERIAIS E ACESSÓRIOS conforme a seção correspondente.
+6. Retorne o JSON final.
 
 REGRAS CRÍTICAS DE NOMES:
-- No campo "description", use EXATAMENTE o nome do produto como veio do buscar_produtos (copie igualzinho).
-- "Econômico"/"Elaborado" é o TIER (filtro), NÃO faz parte do nome — NUNCA escreva "(Econômico)" nem "Pastel de Carne" se o produto se chama só "Carne". Use o nome exato do catálogo.
-- Não invente preços — use sempre o unit_price do buscar_produtos.`;
+- No campo "description", copie o NOME EXATO do produto como está no CATÁLOGO DISPONÍVEL (igualzinho).
+- "Econômico"/"Elaborado" é o TIER (filtro), NÃO faz parte do nome — NUNCA escreva "(Econômico)" nem "Pastel de Carne" se o produto se chama só "Carne".
+- Não invente preços — use o preço do catálogo. Qualquer item fora da lista será DESCARTADO.`;
 
 const SYSTEM_PROMPT_FOOTER = `## FORMATO DE SAÍDA
 Retorne SOMENTE um JSON válido, sem markdown, sem texto extra:
@@ -147,6 +148,21 @@ export async function POST(request: Request) {
             if (!p) return null;
             return `- ${p.name} (R$ ${p.unit_price}/${p.unit}): ${r.rule_text || 'conforme necessário'}`;
           }).filter(Boolean).join('\n')
+      : '';
+
+    // CATÁLOGO REAL injetado no prompt — a IA escolhe SOMENTE destes (nome exato).
+    // Exclui bebidas (já adicionadas) e materiais (tratados à parte).
+    const { data: menuProducts } = await supabase
+      .from('products')
+      .select('name, category, tier, unit_price, is_multiple_of_25')
+      .eq('is_active', true)
+      .is('material_type', null)
+      .not('category', 'in', '("Bebidas","Sucos Naturais")')
+      .order('category').order('name');
+    const catalogBlock = (menuProducts && menuProducts.length > 0)
+      ? '## CATÁLOGO DISPONÍVEL (escolha SOMENTE produtos desta lista, copiando o NOME EXATO; não invente)\n'
+        + 'Formato: Nome | tier | categoria | preço | (mult.25)\n'
+        + menuProducts.map((p: any) => `- ${p.name} | ${p.tier || 'sem tier'} | ${p.category} | R$${p.unit_price}${p.is_multiple_of_25 ? ' | mult.25' : ''}`).join('\n')
       : '';
 
     // Prompt do sistema = regras de negócio escritas (modalidade, consumo, arredondamento, etc.).
@@ -383,7 +399,7 @@ Retorne apenas o JSON.`;
     const notesBlock = notes
       ? `## OBSERVAÇÕES DO VENDEDOR\nLeve em conta estas observações ao montar o orçamento:\n${notes}`
       : '';
-    const systemPrompt = [GENERATION_SYSTEM_PROMPT, materialsRulesText, notesBlock].filter(Boolean).join('\n\n');
+    const systemPrompt = [GENERATION_SYSTEM_PROMPT, catalogBlock, materialsRulesText, notesBlock].filter(Boolean).join('\n\n');
 
     const { text } = await generateText({
       model: aiModel,
@@ -483,11 +499,10 @@ Retorne apenas o JSON.`;
           const tipo = match.material_type ? 'accessory' : 'food';
           return { quote_id: quote.id, product_id: match.id, description: match.name, quantity: item.quantity, unit: match.unit, unit_price: match.unit_price, item_type: tipo };
         }
-        // Sem casamento confiável: NÃO troca por produto errado. Mantém o item da IA
-        // como veio (sem product_id) para o vendedor revisar/corrigir na Revisão.
-        console.warn('Produto não casado no catálogo (mantido p/ revisão):', item.description);
-        return { quote_id: quote.id, product_id: null, description: item.description, quantity: item.quantity, unit: item.unit || 'unidade', unit_price: item.unit_price || 0, item_type: 'food' };
-      }),
+        // Sem casamento confiável = produto inventado (não está no catálogo). Descarta.
+        console.warn('Produto inventado (fora do catálogo), descartado:', item.description);
+        return null;
+      }).filter(Boolean),
     ];
 
     if (finalItems.length > 0) {
