@@ -40,13 +40,17 @@ function calcDrinkQty(product: { unit: string; description: string }, guests: nu
 const SYSTEM_PROMPT_HEADER = `Você é o gerador de orçamentos da Pastelaria Marília de Dirceu.
 Monte o cardápio e as quantidades SEGUINDO as REGRAS DE NEGÓCIO abaixo (consumo por pessoa conforme a duração, modalidade do cardápio, arredondamentos, composição etc.).
 
-Passos:
-1. buscar_produtos: busque os produtos reais do catálogo (filtre por tier/categoria conforme a modalidade). Chame quantas vezes precisar.
-2. Calcule as quantidades a partir das REGRAS DE NEGÓCIO e do número de convidados/duração informados.
-3. Inclua os MATERIAIS E ACESSÓRIOS conforme a seção correspondente.
-4. Retorne o JSON final.
+Passos OBRIGATÓRIOS:
+1. buscar_produtos: PRIMEIRO veja os produtos REAIS do catálogo. A modalidade define o TIER permitido: Econômico → buscar_produtos(tier="Econômico"); Elaborado → tier="Elaborado"; Meio Termo → busque os dois. Chame quantas vezes precisar (por categoria também).
+2. Escolha SOMENTE entre os produtos que apareceram no buscar_produtos. NÃO invente produtos.
+3. Calcule as quantidades pelas REGRAS DE NEGÓCIO (convidados, duração).
+4. Inclua os MATERIAIS E ACESSÓRIOS conforme a seção correspondente.
+5. Retorne o JSON final.
 
-Não invente preços — use sempre o retorno de buscar_produtos.`;
+REGRAS CRÍTICAS DE NOMES:
+- No campo "description", use EXATAMENTE o nome do produto como veio do buscar_produtos (copie igualzinho).
+- "Econômico"/"Elaborado" é o TIER (filtro), NÃO faz parte do nome — NUNCA escreva "(Econômico)" nem "Pastel de Carne" se o produto se chama só "Carne". Use o nome exato do catálogo.
+- Não invente preços — use sempre o unit_price do buscar_produtos.`;
 
 const SYSTEM_PROMPT_FOOTER = `## FORMATO DE SAÍDA
 Retorne SOMENTE um JSON válido, sem markdown, sem texto extra:
@@ -436,16 +440,28 @@ Retorne apenas o JSON.`;
 
     const productList = allProducts || [];
 
+    // Casa a descrição da IA com um produto REAL do catálogo.
+    // (a) tira sufixos como "(Econômico)" — tier é filtro, não nome.
+    // (b) tenta nome EXATO; (c) senão, o nome de produto MAIS LONGO contido na
+    //     descrição (específico ganha de genérico: "Pão de Queijo" > "Queijo").
+    // Nunca casa por pedaço minúsculo: exige o produto cobrir boa parte da descrição,
+    // pra não trocar um item inventado por um produto errado.
     function findProduct(description: string) {
-      const desc = description.toLowerCase().trim();
-      // Exact match
+      const desc = description.toLowerCase().replace(/\([^)]*\)/g, '').trim();
+      if (!desc) return null;
       const exact = productList.find(p => p.name.toLowerCase() === desc);
       if (exact) return exact;
-      // Substring match (description contains product name or vice versa)
-      const partial = productList.find(
-        p => desc.includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(desc)
-      );
-      return partial || null;
+      // produtos cujo nome está contido na descrição (ou vice-versa)
+      const candidates = productList
+        .map(p => ({ p, n: p.name.toLowerCase() }))
+        .filter(({ n }) => n.length >= 4 && (desc.includes(n) || n.includes(desc)))
+        .sort((a, b) => b.n.length - a.n.length);
+      if (candidates.length === 0) return null;
+      const best = candidates[0];
+      // confiança: o nome casado precisa cobrir >= 50% da descrição, senão é arriscado.
+      const longer = Math.max(best.n.length, desc.length);
+      if (best.n.length / longer < 0.6) return null;
+      return best.p;
     }
 
     // 11. Save All Items — materiais/acessórios agora vêm do próprio cardápio da IA
@@ -461,17 +477,17 @@ Retorne apenas o JSON.`;
         product_id: srv.product_id ?? null,
       })),
       ...(suggestedItems.items || []).map((item: any) => {
-        // Match against real DB products
         const match = findProduct(item.description);
         if (match) {
           // material_type marcado → é material/acessório; senão é comida.
           const tipo = match.material_type ? 'accessory' : 'food';
           return { quote_id: quote.id, product_id: match.id, description: match.name, quantity: item.quantity, unit: match.unit, unit_price: match.unit_price, item_type: tipo };
         }
-        // No match found — skip this item (AI hallucinated a product not in DB)
-        console.warn('Produto não encontrado no catálogo, ignorado:', item.description);
-        return null;
-      }).filter(Boolean),
+        // Sem casamento confiável: NÃO troca por produto errado. Mantém o item da IA
+        // como veio (sem product_id) para o vendedor revisar/corrigir na Revisão.
+        console.warn('Produto não casado no catálogo (mantido p/ revisão):', item.description);
+        return { quote_id: quote.id, product_id: null, description: item.description, quantity: item.quantity, unit: item.unit || 'unidade', unit_price: item.unit_price || 0, item_type: 'food' };
+      }),
     ];
 
     if (finalItems.length > 0) {
