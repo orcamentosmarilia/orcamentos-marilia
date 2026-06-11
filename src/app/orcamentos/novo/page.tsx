@@ -408,10 +408,6 @@ export default function NovoOrcamento() {
                   </select>
                 </div>
 
-                <div className="col-span-2">
-                  <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-1.5 block">Observações (texto livre)</label>
-                  <textarea value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} rows={3} className="w-full border border-[var(--color-brand-pink2)] rounded-[10px] p-3 text-sm focus:outline-none focus:border-[var(--color-brand-red)] focus:ring-2 focus:ring-[var(--color-brand-red)]/10" placeholder="Informações adicionais do pedido, preferências, restrições, etc." />
-                </div>
               </div>
             </section>
 
@@ -782,6 +778,15 @@ export default function NovoOrcamento() {
               </div>
             </section>
             )}
+
+            {/* Seção final - Observações */}
+            <section className="bg-white rounded-[10px] shadow-sm p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 rounded-[10px] bg-[var(--color-brand-pink)] text-[var(--color-brand-red)] flex items-center justify-center font-bold">7</div>
+                <h3 className="font-lora font-bold text-[22px] text-[var(--color-brand-wine)]">Observações</h3>
+              </div>
+              <textarea value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} rows={4} className="w-full border border-[var(--color-brand-pink2)] rounded-[10px] p-3 text-sm focus:outline-none focus:border-[var(--color-brand-red)] focus:ring-2 focus:ring-[var(--color-brand-red)]/10" placeholder="Informações adicionais do pedido, preferências, restrições, etc." />
+            </section>
 
           </div>
 
