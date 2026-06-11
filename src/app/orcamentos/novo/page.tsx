@@ -414,14 +414,57 @@ export default function NovoOrcamento() {
                   </select>
                 </div>
 
+                <div className="col-span-2 my-1 border-t border-[#F5D8D5]"></div>
+
+                <div className="col-span-2 md:col-span-1">
+                  <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-1.5 block">Convidados (pessoas) *</label>
+                  <input type="number" min="1" value={formData.guests} onChange={e => setFormData({...formData, guests: e.target.value})} className="w-full border border-[var(--color-brand-pink2)] rounded-[10px] p-3 text-sm focus:outline-none focus:border-[var(--color-brand-red)]" placeholder="0" />
+                </div>
+                <div className="col-span-2 md:col-span-1">
+                  <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-1.5 block">Duração *</label>
+                  <div className="flex gap-2">
+                    <input type="number" min="0" step={formData.durationUnit === 'minutos' ? 5 : 0.5} value={formData.duration} onChange={e => setFormData({...formData, duration: e.target.value})} className="flex-1 border border-[var(--color-brand-pink2)] rounded-[10px] p-3 text-sm focus:outline-none focus:border-[var(--color-brand-red)]" placeholder="0" />
+                    <select value={formData.durationUnit} onChange={e => {
+                      const unit = e.target.value as 'horas' | 'minutos';
+                      const v = parseFloat(formData.duration);
+                      let val = formData.duration;
+                      if (!isNaN(v)) {
+                        if (formData.durationUnit === 'horas' && unit === 'minutos') val = String(Math.round(v * 60));
+                        else if (formData.durationUnit === 'minutos' && unit === 'horas') val = String(+(v / 60).toFixed(2));
+                      }
+                      setFormData({ ...formData, durationUnit: unit, duration: val });
+                    }} className="border border-[var(--color-brand-pink2)] rounded-[10px] px-3 text-sm bg-white focus:outline-none focus:border-[var(--color-brand-red)]">
+                      <option value="horas">horas</option>
+                      <option value="minutos">minutos</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-2 block">Período do Dia *</label>
+                  <div className="flex flex-wrap gap-3">
+                    {(formConfig?.periods || []).map((period: string) => (
+                      <button
+                        key={period}
+                        onClick={() => setFormData({...formData, period})}
+                        className={`px-4 py-2 rounded-full border text-sm font-medium transition-colors focus:outline-none ${
+                        formData.period === period
+                          ? "bg-[var(--color-brand-wine)] text-white border-[var(--color-brand-wine)]"
+                          : "border-[var(--color-brand-pink2)] text-[var(--color-brand-gray)] hover:bg-[var(--color-brand-pink)] hover:border-[var(--color-brand-red)] hover:text-[var(--color-brand-wine)]"}`}
+                      >
+                        {period}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
               </div>
             </section>
 
-            {/* Seção 2 - Logística e Horário */}
+            {/* Seção 2 - Logística e Entrega */}
             <section className="bg-white rounded-[10px] shadow-sm p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-8 h-8 rounded-[10px] bg-[var(--color-brand-pink)] text-[var(--color-brand-red)] flex items-center justify-center font-bold">2</div>
-                <h3 className="font-lora font-bold text-[22px] text-[var(--color-brand-wine)]">Logística e Horário</h3>
+                <h3 className="font-lora font-bold text-[22px] text-[var(--color-brand-wine)]">Logística e Entrega</h3>
               </div>
               
               <div className="grid grid-cols-12 gap-x-4 gap-y-4">
@@ -515,49 +558,6 @@ export default function NovoOrcamento() {
                   )}
                 </div>
 
-                <div className="col-span-12 my-2 border-t border-[#F5D8D5]"></div>
-
-                <div className="col-span-6">
-                  <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-1.5 block">Convidados (pessoas) *</label>
-                  <input type="number" min="1" value={formData.guests} onChange={e => setFormData({...formData, guests: e.target.value})} className="w-full border border-[var(--color-brand-pink2)] rounded-[10px] p-3 text-sm focus:outline-none focus:border-[var(--color-brand-red)]" placeholder="0" />
-                </div>
-                <div className="col-span-6">
-                  <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-1.5 block">Duração *</label>
-                  <div className="flex gap-2">
-                    <input type="number" min="0" step={formData.durationUnit === 'minutos' ? 5 : 0.5} value={formData.duration} onChange={e => setFormData({...formData, duration: e.target.value})} className="flex-1 border border-[var(--color-brand-pink2)] rounded-[10px] p-3 text-sm focus:outline-none focus:border-[var(--color-brand-red)]" placeholder="0" />
-                    <select value={formData.durationUnit} onChange={e => {
-                      const unit = e.target.value as 'horas' | 'minutos';
-                      const v = parseFloat(formData.duration);
-                      let val = formData.duration;
-                      if (!isNaN(v)) {
-                        if (formData.durationUnit === 'horas' && unit === 'minutos') val = String(Math.round(v * 60));
-                        else if (formData.durationUnit === 'minutos' && unit === 'horas') val = String(+(v / 60).toFixed(2));
-                      }
-                      setFormData({ ...formData, durationUnit: unit, duration: val });
-                    }} className="border border-[var(--color-brand-pink2)] rounded-[10px] px-3 text-sm bg-white focus:outline-none focus:border-[var(--color-brand-red)]">
-                      <option value="horas">horas</option>
-                      <option value="minutos">minutos</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="col-span-12 mt-2">
-                  <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-2 block">Período do Dia *</label>
-                  <div className="flex flex-wrap gap-3">
-                    {(formConfig?.periods || []).map((period: string) => (
-                      <button 
-                        key={period} 
-                        onClick={() => setFormData({...formData, period})}
-                        className={`px-4 py-2 rounded-full border text-sm font-medium transition-colors focus:outline-none ${
-                        formData.period === period 
-                          ? "bg-[var(--color-brand-wine)] text-white border-[var(--color-brand-wine)]" 
-                          : "border-[var(--color-brand-pink2)] text-[var(--color-brand-gray)] hover:bg-[var(--color-brand-pink)] hover:border-[var(--color-brand-red)] hover:text-[var(--color-brand-wine)]"}`}
-                      >
-                        {period}
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </div>
             </section>
 
@@ -627,10 +627,53 @@ export default function NovoOrcamento() {
               })()}
             </section>
 
-            {/* Seção 4 - Cardápio */}
+            {/* Seção 4 - Pacote de Bebidas */}
             <section className="bg-white rounded-[10px] shadow-sm p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-8 h-8 rounded-[10px] bg-[var(--color-brand-pink)] text-[var(--color-brand-red)] flex items-center justify-center font-bold">4</div>
+                <h3 className="font-lora font-bold text-[22px] text-[var(--color-brand-wine)]">Pacote de Bebidas</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {drinkOptions.map(opt => {
+                  const product = drinkProducts.find(p =>
+                    p.name.toLowerCase() === opt.productName.toLowerCase()
+                  );
+                  const isChecked = formData.drinks.includes(opt.id);
+                  return (
+                    <label
+                      key={opt.id}
+                      className={`flex items-start gap-3 p-4 rounded-[10px] border cursor-pointer transition-colors ${
+                        isChecked
+                          ? "bg-[var(--color-brand-pink)] border-[var(--color-brand-red)]"
+                          : "border-[var(--color-brand-pink2)] hover:bg-[var(--color-brand-pink)]"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 mt-0.5 accent-[var(--color-brand-red)] flex-shrink-0"
+                        checked={isChecked}
+                        onChange={(e) => handleDrinkChange(opt.id, e.target.checked)}
+                      />
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-bold text-[var(--color-brand-wine)]">{opt.label}</span>
+                        {product ? (
+                          <span className="text-[11px] text-rose-400 truncate">
+                            {product.name} · {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.unit_price)}/{product.unit}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-gray-300 italic">Não cadastrado</span>
+                        )}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* Seção 5 - Cardápio */}
+            <section className="bg-white rounded-[10px] shadow-sm p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 rounded-[10px] bg-[var(--color-brand-pink)] text-[var(--color-brand-red)] flex items-center justify-center font-bold">5</div>
                 <h3 className="font-lora font-bold text-[22px] text-[var(--color-brand-wine)]">Cardápio</h3>
               </div>
 
@@ -708,49 +751,6 @@ export default function NovoOrcamento() {
                     placeholder="R$ 0,00"
                   />
                 </div>
-              </div>
-            </section>
-
-            {/* Seção 5 - Pacote de Bebidas */}
-            <section className="bg-white rounded-[10px] shadow-sm p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 rounded-[10px] bg-[var(--color-brand-pink)] text-[var(--color-brand-red)] flex items-center justify-center font-bold">5</div>
-                <h3 className="font-lora font-bold text-[22px] text-[var(--color-brand-wine)]">Pacote de Bebidas</h3>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {drinkOptions.map(opt => {
-                  const product = drinkProducts.find(p =>
-                    p.name.toLowerCase() === opt.productName.toLowerCase()
-                  );
-                  const isChecked = formData.drinks.includes(opt.id);
-                  return (
-                    <label
-                      key={opt.id}
-                      className={`flex items-start gap-3 p-4 rounded-[10px] border cursor-pointer transition-colors ${
-                        isChecked
-                          ? "bg-[var(--color-brand-pink)] border-[var(--color-brand-red)]"
-                          : "border-[var(--color-brand-pink2)] hover:bg-[var(--color-brand-pink)]"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 mt-0.5 accent-[var(--color-brand-red)] flex-shrink-0"
-                        checked={isChecked}
-                        onChange={(e) => handleDrinkChange(opt.id, e.target.checked)}
-                      />
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-sm font-bold text-[var(--color-brand-wine)]">{opt.label}</span>
-                        {product ? (
-                          <span className="text-[11px] text-rose-400 truncate">
-                            {product.name} · {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.unit_price)}/{product.unit}
-                          </span>
-                        ) : (
-                          <span className="text-[11px] text-gray-300 italic">Não cadastrado</span>
-                        )}
-                      </div>
-                    </label>
-                  );
-                })}
               </div>
             </section>
 
