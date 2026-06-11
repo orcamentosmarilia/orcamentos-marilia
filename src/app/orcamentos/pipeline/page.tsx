@@ -304,9 +304,9 @@ export default function PipelinePage() {
                       <button onClick={() => moveStage(idx, 1)} disabled={idx === stages.length - 1} className="text-rose-300 hover:text-[#5C1F2E] disabled:opacity-20"><ChevronDown size={13} /></button>
                     </div>
                     <input type="color" value={s.color || "#9E9E9E"} onChange={e => updateStage(s.id, { color: e.target.value })} className="w-7 h-7 rounded border border-rose-100 flex-shrink-0" title="Cor" />
-                    <input type="text" value={s.title} onChange={e => updateStage(s.id, { title: e.target.value })} className="flex-1 min-w-0 border border-rose-100 rounded-lg px-2.5 py-1.5 text-sm font-dm text-[#5C1F2E] focus:outline-none focus:border-[#5C1F2E]" />
+                    <input type="text" value={s.title} readOnly={s.isDefault} onChange={e => updateStage(s.id, { title: e.target.value })} className={`flex-1 min-w-0 border border-rose-100 rounded-lg px-2.5 py-1.5 text-sm font-dm text-[#5C1F2E] focus:outline-none focus:border-[#5C1F2E] ${s.isDefault ? "bg-rose-50/40 text-rose-400" : ""}`} />
                     <label className="flex items-center gap-1 text-[10px] font-dm text-rose-400 flex-shrink-0" title="Encerra o funil (não vira coluna)">
-                      <input type="checkbox" checked={!!s.isTerminal} onChange={e => updateStage(s.id, { isTerminal: e.target.checked })} /> encerra
+                      <input type="checkbox" checked={!!s.isTerminal} disabled={s.isDefault} onChange={e => updateStage(s.id, { isTerminal: e.target.checked })} /> encerra
                     </label>
                     {s.isDefault
                       ? <span className="text-[9px] font-dm text-rose-300 uppercase tracking-wider flex-shrink-0">fixa</span>

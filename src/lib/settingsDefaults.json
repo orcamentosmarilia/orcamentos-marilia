@@ -68,14 +68,12 @@
     { "id": "chocolate_quente", "label": "Chocolate Quente", "productName": "Chocolate quente", "counts_as_coffee": false, "counts_as_cold_drink": false, "guests_per_unit": 10 }
   ],
   "pipeline_stages": [
-    { "id": "rascunho", "title": "Rascunho", "color": "#9E9E9E", "isTerminal": false, "isDefault": true },
-    { "id": "aguardando", "title": "Aguardando", "color": "#D14237", "isTerminal": false, "isDefault": true },
-    { "id": "aguardando_aprovacao", "title": "Aguardando aprovação", "color": "#7C3AED", "isTerminal": false },
-    { "id": "solicitou_ajustes", "title": "Solicitou ajustes", "color": "#7C3AED", "isTerminal": false },
-    { "id": "aprovado", "title": "Aprovado", "color": "#2E7D4F", "isTerminal": true },
-    { "id": "pago", "title": "Pago", "color": "#2E7D4F", "isTerminal": true },
-    { "id": "realizado", "title": "Realizado", "color": "#1565C0", "isTerminal": true },
-    { "id": "perdido", "title": "Perdido", "color": "#64748B", "isTerminal": true }
+    { "id": "rascunho", "title": "Rascunho", "color": "#9E9E9E", "isTerminal": false, "isDefault": false },
+    { "id": "aguardando", "title": "Aguardando", "color": "#D14237", "isTerminal": false, "isDefault": false },
+    { "id": "aguardando_aprovacao", "title": "Aguardando aprovação", "color": "#7C3AED", "isTerminal": false, "isDefault": false },
+    { "id": "solicitou_ajustes", "title": "Solicitou ajustes", "color": "#7C3AED", "isTerminal": false, "isDefault": false },
+    { "id": "aprovado", "title": "Ganho", "color": "#2E7D4F", "isTerminal": true, "isDefault": true },
+    { "id": "perdido", "title": "Perdido", "color": "#64748B", "isTerminal": true, "isDefault": true }
   ],
   "quote_form_config": {
     "periods": ["Manhã", "Tarde", "Noite", "Dia todo"],
