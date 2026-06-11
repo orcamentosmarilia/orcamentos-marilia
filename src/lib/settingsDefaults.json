@@ -68,14 +68,19 @@
     { "id": "chocolate_quente", "label": "Chocolate Quente", "productName": "Chocolate quente", "counts_as_coffee": false, "counts_as_cold_drink": false, "guests_per_unit": 10 }
   ],
   "pipeline_stages": [
-    { "id": "rascunho", "title": "Rascunho", "isDefault": true },
-    { "id": "aguardando", "title": "Aguardando", "isDefault": true },
-    { "id": "aguardando_aprovacao", "title": "Aguardando aprovação" },
-    { "id": "solicitou_ajustes", "title": "Solicitou ajustes" }
+    { "id": "rascunho", "title": "Rascunho", "color": "#9E9E9E", "isTerminal": false, "isDefault": true },
+    { "id": "aguardando", "title": "Aguardando", "color": "#D14237", "isTerminal": false, "isDefault": true },
+    { "id": "aguardando_aprovacao", "title": "Aguardando aprovação", "color": "#7C3AED", "isTerminal": false },
+    { "id": "solicitou_ajustes", "title": "Solicitou ajustes", "color": "#7C3AED", "isTerminal": false },
+    { "id": "aprovado", "title": "Aprovado", "color": "#2E7D4F", "isTerminal": true },
+    { "id": "pago", "title": "Pago", "color": "#2E7D4F", "isTerminal": true },
+    { "id": "realizado", "title": "Realizado", "color": "#1565C0", "isTerminal": true },
+    { "id": "perdido", "title": "Perdido", "color": "#64748B", "isTerminal": true }
   ],
   "quote_form_config": {
     "periods": ["Manhã", "Tarde", "Noite", "Dia todo"],
     "materials": ["Descartável", "Louça"],
+    "modalidades": ["Econômico", "Meio Termo", "Elaborado"],
     "lead_sources": ["WhatsApp", "Instagram", "Google", "Indicação", "Site", "Evento Anterior", "Outros"],
     "guests": { "min": 1, "max": 2000, "default": 50 },
     "duration": { "min": 0.5, "max": 12, "default": 3 },
@@ -84,13 +89,5 @@
       { "value": "3frutas", "label": "Mini Espeto — 3 frutas", "price": 3.5, "qty_per_person": 1 },
       { "value": "4frutas", "label": "Espeto — 4 frutas", "price": 4.5, "qty_per_person": 1 }
     ]
-  },
-  "status_config": [
-    { "id": "rascunho", "label": "Rascunho", "color": "#9E9E9E", "isTerminal": false },
-    { "id": "aguardando", "label": "Aguardando", "color": "#D14237", "isTerminal": false },
-    { "id": "aprovado", "label": "Aprovado", "color": "#2E7D4F", "isTerminal": true },
-    { "id": "pago", "label": "Pago", "color": "#2E7D4F", "isTerminal": true },
-    { "id": "realizado", "label": "Realizado", "color": "#1565C0", "isTerminal": true },
-    { "id": "perdido", "label": "Perdido", "color": "#64748B", "isTerminal": true }
-  ]
+  }
 }

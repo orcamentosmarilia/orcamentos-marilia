@@ -61,16 +61,16 @@ export default function DashboardPage() {
   const [preset, setPreset] = useState<Preset>("mes");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [statusCfg, setStatusCfg] = useState<{ id: string; label: string; color: string }[]>([]);
+  const [statusCfg, setStatusCfg] = useState<{ id: string; title: string; color: string }[]>([]);
 
-  // Status (rótulos/cores) — fonte única em settings.status_config
+  // Rótulos/cores dos status — fonte única nas etapas do Kanban (settings.pipeline_stages)
   useEffect(() => {
-    supabase.from("settings").select("value").eq("key", "status_config").single()
+    supabase.from("settings").select("value").eq("key", "pipeline_stages").single()
       .then(({ data }) => { if (Array.isArray(data?.value)) setStatusCfg(data.value); });
   }, []);
 
   const STATUS_COLOR = useMemo(() => Object.fromEntries(statusCfg.map(s => [s.id, s.color])), [statusCfg]);
-  const STATUS_LABEL = useMemo(() => Object.fromEntries(statusCfg.map(s => [s.id, s.label])), [statusCfg]);
+  const STATUS_LABEL = useMemo(() => Object.fromEntries(statusCfg.map(s => [s.id, s.title])), [statusCfg]);
 
   const statusBadge = (status: string) => {
     const s = status.toLowerCase();

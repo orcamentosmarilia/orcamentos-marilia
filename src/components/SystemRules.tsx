@@ -58,34 +58,24 @@ export default function SystemRules() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [stages, setStages] = useState<any[]>([]);
   const [form, setForm] = useState<any>(null);
-  const [status, setStatus] = useState<any[]>([]);
 
   useEffect(() => { load(); }, []);
 
   async function load() {
     setLoading(true);
-    const keys = ["pipeline_stages", "quote_form_config", "status_config"];
-    const { data } = await supabase.from("settings").select("key,value").in("key", keys);
-    const map: Record<string, any> = {};
-    (data || []).forEach((r: any) => { map[r.key] = r.value; });
-    setStages(Array.isArray(map.pipeline_stages) ? map.pipeline_stages : []);
-    setForm(map.quote_form_config || {});
-    setStatus(Array.isArray(map.status_config) ? map.status_config : []);
+    const { data } = await supabase.from("settings").select("value").eq("key", "quote_form_config").single();
+    setForm(data?.value || {});
     setLoading(false);
   }
 
   async function saveAll() {
     setSaving(true);
     try {
-      const now = new Date().toISOString();
-      const rows = [
-        { key: "pipeline_stages", value: stages, updated_at: now },
-        { key: "quote_form_config", value: form, updated_at: now },
-        { key: "status_config", value: status, updated_at: now },
-      ];
-      const { error } = await supabase.from("settings").upsert(rows, { onConflict: "key" });
+      const { error } = await supabase.from("settings").upsert(
+        { key: "quote_form_config", value: form, updated_at: new Date().toISOString() },
+        { onConflict: "key" }
+      );
       if (error) throw error;
       toast.success("Regras do sistema salvas!");
     } catch (e: any) {
@@ -139,45 +129,6 @@ export default function SystemRules() {
               <button onClick={() => setForm((p: any) => ({ ...p, skewer_options: [...(p.skewer_options || []), { value: `opt_${Date.now()}`, label: "", price: 0, qty_per_person: 1 }] }))} className="self-start text-[11px] font-bold text-[var(--color-brand-red)] flex items-center gap-1"><Plus size={13} /> Opção</button>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* ETAPAS DO KANBAN */}
-      <section className={card}>
-        <div className="mb-5 pb-4 border-b border-[var(--color-brand-pink2)]">
-          <h2 className={h2}>Etapas do Kanban</h2>
-          <p className={sub}>Colunas do pipeline (as marcadas como padrão não podem ser removidas).</p>
-        </div>
-        <div className="flex flex-col gap-2">
-          {stages.map((s, i) => (
-            <div key={i} className="grid grid-cols-[1fr_32px] gap-2 items-center">
-              <Txt value={s.title} onChange={v => setStages(prev => prev.map((x, j) => j === i ? { ...x, title: v } : x))} />
-              {s.isDefault ? <span className="text-[9px] text-rose-300 uppercase">fixa</span> :
-                <button onClick={() => setStages(prev => prev.filter((_, j) => j !== i))} className="text-rose-300 hover:text-red-500"><Trash2 size={14} /></button>}
-            </div>
-          ))}
-          <button onClick={() => setStages(prev => [...prev, { id: `stage_${Date.now()}`, title: "" }])} className="self-start text-[11px] font-bold text-[var(--color-brand-red)] flex items-center gap-1"><Plus size={13} /> Etapa</button>
-        </div>
-      </section>
-
-      {/* STATUS */}
-      <section className={card}>
-        <div className="mb-5 pb-4 border-b border-[var(--color-brand-pink2)]">
-          <h2 className={h2}>Rótulos e Cores de Status</h2>
-          <p className={sub}>Como cada status aparece (rótulo, cor e se encerra o funil).</p>
-        </div>
-        <div className="flex flex-col gap-2">
-          {status.map((s, i) => {
-            const upd = (patch: any) => setStatus(prev => prev.map((x, j) => j === i ? { ...x, ...patch } : x));
-            return (
-              <div key={i} className="grid grid-cols-[120px_1fr_60px_110px] gap-2 items-center">
-                <span className="text-xs font-mono text-rose-400">{s.id}</span>
-                <Txt value={s.label} onChange={v => upd({ label: v })} />
-                <input type="color" value={s.color} onChange={e => upd({ color: e.target.value })} className="w-full h-9 rounded-lg border border-rose-100" />
-                <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" checked={!!s.isTerminal} onChange={e => upd({ isTerminal: e.target.checked })} /> encerra</label>
-              </div>
-            );
-          })}
         </div>
       </section>
 

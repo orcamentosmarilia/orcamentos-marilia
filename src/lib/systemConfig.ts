@@ -31,7 +31,6 @@ export const SETTINGS_KEYS = {
   pipeline_stages: "pipeline_stages",
   business_rules: "business_rules",
   quote_form_config: "quote_form_config",
-  status_config: "status_config",
 } as const;
 
 export const SETTINGS_DEFAULTS = defaults;
@@ -42,8 +41,6 @@ export const DEFAULT_COMPOSITION_RULES = defaults.composition_rules;
 export const DEFAULT_DRINK_MAPPINGS = defaults.drink_mappings;
 export const DEFAULT_PIPELINE_STAGES = defaults.pipeline_stages;
 export const DEFAULT_QUOTE_FORM_CONFIG = defaults.quote_form_config;
-export const DEFAULT_STATUS_CONFIG = defaults.status_config;
 
 export type QuoteFormConfig = typeof defaults.quote_form_config;
-export type StatusConfig = typeof defaults.status_config;
 export type DrinkMapping = (typeof defaults.drink_mappings)[number];

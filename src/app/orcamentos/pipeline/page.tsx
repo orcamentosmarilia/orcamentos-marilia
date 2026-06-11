@@ -6,7 +6,7 @@ import { toast } from "@/components/Notify";
 import Link from "next/link";
 import {
   Trash2, AlertTriangle, ShieldCheck, Loader2,
-  X, Settings, Plus, CheckCircle, XCircle,
+  X, Settings, Plus, CheckCircle, XCircle, ChevronUp, ChevronDown, Save,
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 
@@ -25,25 +25,12 @@ interface Quote {
 interface Stage {
   id: string;
   title: string;
+  color?: string;       // cor da etapa (rótulo/cor unificados)
+  isTerminal?: boolean; // encerra o funil (não vira coluna no Kanban)
   isDefault?: boolean;
 }
 
-/* ─── Constants ─────────────────────────────────────────────── */
-const TERMINAL = ["aprovado", "perdido", "pago", "realizado"];
-
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-function stageDot(id: string) {
-  if (id === "rascunho")   return "#9E9E9E";
-  if (id === "aguardando") return "#D14237";
-  return "#7C3AED";
-}
-
-function stageCls(id: string) {
-  if (id === "rascunho")   return "bg-gray-50 border-[#C4ABA8]/50";
-  if (id === "aguardando") return "bg-[#FAE8E6] border-brand-pink2";
-  return "bg-violet-50 border-violet-200";
-}
 
 function creatorLabel(name: string | undefined) {
   if (!name) return "—";
@@ -57,6 +44,11 @@ export default function PipelinePage() {
   const [stages, setStages]         = useState<Stage[]>([]);
   const [loading, setLoading]       = useState(true);
   const [draggedId, setDraggedId]   = useState<string | null>(null);
+
+  // Etapas: cores e quais encerram o funil (derivado da própria lista de etapas)
+  const stageColor = (id: string) => stages.find(s => s.id === id)?.color || "#9E9E9E";
+  const terminalIds = useMemo(() => new Set(stages.filter(s => s.isTerminal).map(s => s.id)), [stages]);
+  const columns = useMemo(() => stages.filter(s => !s.isTerminal), [stages]);
 
   // Delete modal
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; quoteId: string | null; quoteName: string | null }>({ open: false, quoteId: null, quoteName: null });
@@ -99,13 +91,25 @@ export default function PipelinePage() {
     if (!title) return;
     setSavingStage(true);
     const id = title.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
-    if (!stages.find(s => s.id === id)) await persistStages([...stages, { id, title }]);
+    if (!stages.find(s => s.id === id)) await persistStages([...stages, { id, title, color: "#7C3AED", isTerminal: false }]);
     setNewStageName("");
     setSavingStage(false);
   }
 
   async function removeStage(id: string) {
     await persistStages(stages.filter(s => s.id !== id));
+  }
+
+  function updateStage(id: string, patch: Partial<Stage>) {
+    setStages(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s));
+  }
+
+  function moveStage(idx: number, dir: -1 | 1) {
+    const next = idx + dir;
+    if (next < 0 || next >= stages.length) return;
+    const arr = [...stages];
+    [arr[idx], arr[next]] = [arr[next], arr[idx]];
+    persistStages(arr);
   }
 
   /* ── Data ── */
@@ -136,8 +140,8 @@ export default function PipelinePage() {
 
   /* ── Active quotes (non-terminal only) ── */
   const activeQuotes = useMemo(
-    () => quotes.filter(q => !TERMINAL.includes(q.status?.toLowerCase() ?? "")),
-    [quotes],
+    () => quotes.filter(q => !terminalIds.has(q.status?.toLowerCase() ?? "")),
+    [quotes, terminalIds],
   );
 
   /* ── Drag & drop ── */
@@ -290,30 +294,37 @@ export default function PipelinePage() {
                 <h2 className="font-lora text-xl font-bold text-[#5C1F2E]">Etapas do Kanban</h2>
                 <button onClick={() => setShowSettings(false)} className="text-rose-300 hover:text-[#D14237]"><X size={18} /></button>
               </div>
-              <p className="text-xs font-dm text-rose-400 mb-4">As colunas Aprovado e Perdido ficam apenas na Lista Geral.</p>
+              <p className="text-xs font-dm text-rose-400 mb-4">Reordene com ↑ ↓. As etapas marcadas como <b>encerra</b> não viram coluna (saem do funil), mas mantêm rótulo e cor.</p>
 
-              <div className="flex flex-col gap-2 mb-5">
-                {stages.map(s => (
-                  <div key={s.id} className="flex items-center justify-between px-4 py-2.5 rounded-xl border border-rose-50 bg-rose-50/30">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: stageDot(s.id) }} />
-                      <span className="text-sm font-dm font-bold text-[#5C1F2E]">{s.title}</span>
-                      {s.isDefault && <span className="text-[9px] font-dm text-rose-300 uppercase tracking-wider">padrão</span>}
+              <div className="flex flex-col gap-2 mb-4 max-h-[50vh] overflow-y-auto">
+                {stages.map((s, idx) => (
+                  <div key={s.id} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-rose-50 bg-rose-50/30">
+                    <div className="flex flex-col">
+                      <button onClick={() => moveStage(idx, -1)} disabled={idx === 0} className="text-rose-300 hover:text-[#5C1F2E] disabled:opacity-20"><ChevronUp size={13} /></button>
+                      <button onClick={() => moveStage(idx, 1)} disabled={idx === stages.length - 1} className="text-rose-300 hover:text-[#5C1F2E] disabled:opacity-20"><ChevronDown size={13} /></button>
                     </div>
-                    {!s.isDefault && (
-                      <button onClick={() => removeStage(s.id)} className="text-rose-200 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
-                    )}
+                    <input type="color" value={s.color || "#9E9E9E"} onChange={e => updateStage(s.id, { color: e.target.value })} className="w-7 h-7 rounded border border-rose-100 flex-shrink-0" title="Cor" />
+                    <input type="text" value={s.title} onChange={e => updateStage(s.id, { title: e.target.value })} className="flex-1 min-w-0 border border-rose-100 rounded-lg px-2.5 py-1.5 text-sm font-dm text-[#5C1F2E] focus:outline-none focus:border-[#5C1F2E]" />
+                    <label className="flex items-center gap-1 text-[10px] font-dm text-rose-400 flex-shrink-0" title="Encerra o funil (não vira coluna)">
+                      <input type="checkbox" checked={!!s.isTerminal} onChange={e => updateStage(s.id, { isTerminal: e.target.checked })} /> encerra
+                    </label>
+                    {s.isDefault
+                      ? <span className="text-[9px] font-dm text-rose-300 uppercase tracking-wider flex-shrink-0">fixa</span>
+                      : <button onClick={() => removeStage(s.id)} className="text-rose-200 hover:text-red-500 transition-colors flex-shrink-0"><Trash2 size={14} /></button>}
                   </div>
                 ))}
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 mb-3">
                 <input type="text" placeholder="Nome da nova etapa..." value={newStageName} onChange={e => setNewStageName(e.target.value)} onKeyDown={e => e.key === "Enter" && addStage()}
                   className="flex-1 border border-rose-100 rounded-xl px-3 py-2.5 text-sm font-dm focus:outline-none focus:border-[#5C1F2E] text-[#5C1F2E] placeholder:text-rose-200" />
-                <button onClick={addStage} disabled={savingStage || !newStageName.trim()} className="bg-[#5C1F2E] hover:bg-[#4A1925] disabled:opacity-40 text-white px-4 py-2.5 rounded-xl font-dm font-bold text-sm flex items-center gap-1.5 transition-all">
+                <button onClick={addStage} disabled={savingStage || !newStageName.trim()} className="bg-rose-50 hover:bg-rose-100 text-[#D14237] border border-rose-100 px-4 py-2.5 rounded-xl font-dm font-bold text-sm flex items-center gap-1.5 transition-all">
                   {savingStage ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Adicionar
                 </button>
               </div>
+              <button onClick={() => { persistStages(stages); setShowSettings(false); }} className="w-full bg-[#5C1F2E] hover:bg-[#4A1925] text-white px-4 py-2.5 rounded-xl font-dm font-bold text-sm flex items-center justify-center gap-1.5 transition-all">
+                <Save size={14} /> Salvar etapas
+              </button>
             </div>
           </div>
         </div>
@@ -331,21 +342,23 @@ export default function PipelinePage() {
 
       {/* ── Board ── */}
       <div className="flex gap-4 h-full overflow-x-auto pb-4">
-        {stages.map(col => {
+        {columns.map(col => {
           const colQuotes = activeQuotes.filter(q => q.status === col.id);
           const colTotal  = colQuotes.reduce((s, q) => s + (Number(q.total_value) || 0), 0);
+          const color = stageColor(col.id);
 
           return (
             <div
               key={col.id}
-              className={`flex-1 min-w-[240px] flex flex-col rounded-2xl border ${stageCls(col.id)} bg-white/50`}
+              className="flex-1 min-w-[240px] flex flex-col rounded-2xl border bg-white/50"
+              style={{ borderColor: color + "55" }}
               onDragOver={handleDragOver}
               onDrop={e => handleDrop(e, col.id)}
             >
               {/* Column header */}
-              <div className={`px-4 py-3 rounded-t-2xl border-b ${stageCls(col.id)}`}>
+              <div className="px-4 py-3 rounded-t-2xl border-b" style={{ borderColor: color + "33", backgroundColor: color + "12" }}>
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: stageDot(col.id) }} />
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
                   <h3 className="font-lora font-bold text-[#5C1F2E] text-sm">{col.title}</h3>
                 </div>
                 <div className="flex items-center justify-between pl-4 mt-0.5">
@@ -353,7 +366,7 @@ export default function PipelinePage() {
                     {colQuotes.length} lead{colQuotes.length !== 1 ? "s" : ""}
                   </p>
                   {colTotal > 0 && (
-                    <p className="text-[10px] font-dm font-bold" style={{ color: stageDot(col.id) }}>
+                    <p className="text-[10px] font-dm font-bold" style={{ color }}>
                       {fmt(colTotal)}
                     </p>
                   )}
