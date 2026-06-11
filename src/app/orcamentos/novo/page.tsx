@@ -519,7 +519,16 @@ export default function NovoOrcamento() {
                   <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-1.5 block">Duração *</label>
                   <div className="flex gap-2">
                     <input type="number" min="0" step={formData.durationUnit === 'minutos' ? 5 : 0.5} value={formData.duration} onChange={e => setFormData({...formData, duration: e.target.value})} className="flex-1 border border-[var(--color-brand-pink2)] rounded-[10px] p-3 text-sm focus:outline-none focus:border-[var(--color-brand-red)]" placeholder="0" />
-                    <select value={formData.durationUnit} onChange={e => setFormData({...formData, durationUnit: e.target.value as 'horas' | 'minutos'})} className="border border-[var(--color-brand-pink2)] rounded-[10px] px-3 text-sm bg-white focus:outline-none focus:border-[var(--color-brand-red)]">
+                    <select value={formData.durationUnit} onChange={e => {
+                      const unit = e.target.value as 'horas' | 'minutos';
+                      const v = parseFloat(formData.duration);
+                      let val = formData.duration;
+                      if (!isNaN(v)) {
+                        if (formData.durationUnit === 'horas' && unit === 'minutos') val = String(Math.round(v * 60));
+                        else if (formData.durationUnit === 'minutos' && unit === 'horas') val = String(+(v / 60).toFixed(2));
+                      }
+                      setFormData({ ...formData, durationUnit: unit, duration: val });
+                    }} className="border border-[var(--color-brand-pink2)] rounded-[10px] px-3 text-sm bg-white focus:outline-none focus:border-[var(--color-brand-red)]">
                       <option value="horas">horas</option>
                       <option value="minutos">minutos</option>
                     </select>
