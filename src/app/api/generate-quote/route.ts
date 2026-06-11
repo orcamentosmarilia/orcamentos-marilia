@@ -91,9 +91,12 @@ export async function POST(request: Request) {
     const guests = formData.guests ? parseInt(formData.guests) : 0;
     const duration = formData.duration ? parseFloat(formData.duration) : 0;
     const selectedServiceIds = formData.services || [];
+    const selectedMaterialIds: string[] = formData.materials || [];
     const modalidade = formData.modalidade || 'Econômico';
     const espeto = formData.espeto || 'nao';
     const budget = formData.budget ? parseFloat(formData.budget) : null;
+    const notes: string = (formData.notes || '').trim();
+    const eventTime: string = formData.eventTime || null;
     let materialType = formData.material || 'Descartável';
 
     // 1. Fetch all settings from DB (single source of truth — nada hardcoded)
@@ -162,12 +165,19 @@ export async function POST(request: Request) {
     const depProductIds = new Set<string>(depList.map((r: any) => r.product_id).filter(Boolean));
     let depProducts: Record<string, any> = {};
     if (depProductIds.size > 0) {
-      const { data: dp } = await supabase.from('products').select('id,name,unit,unit_price').in('id', Array.from(depProductIds));
+      const { data: dp } = await supabase.from('products').select('id,name,unit,unit_price,material_type').in('id', Array.from(depProductIds));
       depProducts = Object.fromEntries((dp || []).map((p: any) => [p.id, p]));
     }
-    const materialsRulesText = depList.length
-      ? '## MATERIAIS E ACESSÓRIOS\nInclua estes materiais no orçamento conforme a regra de cada um. Use exatamente o nome e o preço do produto do catálogo:\n'
-        + depList.map((r: any) => {
+    // Inclui no prompt: materiais SELECIONADOS no formulário + regras sem tipo de material (ex.: bolo, sempre).
+    const selectedMaterialSet = new Set<string>(selectedMaterialIds);
+    const activeDeps = depList.filter((r: any) => {
+      const p = depProducts[r.product_id];
+      const isMaterial = !!p?.material_type;
+      return isMaterial ? selectedMaterialSet.has(r.product_id) : true;
+    });
+    const materialsRulesText = activeDeps.length
+      ? '## MATERIAIS E ACESSÓRIOS\nInclua estes itens no orçamento conforme a regra de cada um. Use exatamente o nome e o preço do produto do catálogo:\n'
+        + activeDeps.map((r: any) => {
             const p = depProducts[r.product_id];
             if (!p) return null;
             return `- ${p.name} (R$ ${p.unit_price}/${p.unit}): ${r.rule_text || 'conforme necessário'}`;
@@ -317,12 +327,15 @@ export async function POST(request: Request) {
         client_name: formData.clientName || 'Cliente sem nome',
         status: 'rascunho',
         event_date: formData.eventDate || new Date().toISOString().split('T')[0],
+        event_time: eventTime,
         event_type: eventTypeName,
         guests,
         duration_hours: duration,
         period: formData.period,
         services: selectedServiceIds,
         beverages: formData.drinks || [],
+        materials: selectedMaterialIds,
+        notes: notes || null,
         created_by: formData.createdBy || 'Sistema',
         lead_source: formData.leadSource || 'WhatsApp',
         ai_prompt_used: JSON.stringify({ modalidade, espeto, budget }),
@@ -425,7 +438,10 @@ Retorne apenas o JSON.`;
     const eventRulesBlock = eventProfileRules
       ? `## REGRAS DO TIPO DE EVENTO (${eventTypeName})\n${eventProfileRules}`
       : '';
-    const systemPrompt = [GENERATION_SYSTEM_PROMPT, materialsRulesText, eventRulesBlock].filter(Boolean).join('\n\n');
+    const notesBlock = notes
+      ? `## OBSERVAÇÕES DO VENDEDOR\nLeve em conta estas observações ao montar o orçamento:\n${notes}`
+      : '';
+    const systemPrompt = [GENERATION_SYSTEM_PROMPT, materialsRulesText, eventRulesBlock, notesBlock].filter(Boolean).join('\n\n');
 
     const { text } = await generateText({
       model: aiModel,

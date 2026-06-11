@@ -53,28 +53,35 @@ export default function NovoOrcamento() {
     clientName: "",
     clientPhone: "",
     eventDate: "",
+    eventTime: "",
     eventName: "",
     leadSource: "WhatsApp", // Default value
-    
+    notes: "",
+
     // Logistica
+    addressLater: false,
     cep: "",
     street: "",
     complement: "",
     neighborhood: "",
     city: "",
     deliveryFee: 0,
-    
+
     guests: "",
     duration: "",
+    durationUnit: "horas" as "horas" | "minutos",
     period: "Manhã",
-    
+
     selectedServiceIds: [] as string[],
     drinks: [] as string[],
+    selectedMaterialIds: [] as string[],
     modalidade: "Econômico",
     espeto: "nao",
     incluiDoces: false,
     budget: "",
   });
+
+  const [availableMaterials, setAvailableMaterials] = useState<{ id: string; name: string; unit: string; unit_price: number }[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -91,6 +98,12 @@ export default function NovoOrcamento() {
     if (resServices.data) setAvailableServices(resServices.data);
     if (resFees.data) setAvailableDeliveryFees(resFees.data);
     if (resDrinks.data) setDrinkProducts(resDrinks.data);
+
+    // Materiais selecionáveis (produtos marcados com tipo de material)
+    const { data: matData } = await supabase
+      .from('products').select('id,name,unit,unit_price')
+      .not('material_type', 'is', null).eq('is_active', true).order('name');
+    if (matData) setAvailableMaterials(matData);
 
     // Seleções/regras do orçamento — fonte única no banco
     const { data: settingsRows } = await supabase
@@ -240,10 +253,25 @@ export default function NovoOrcamento() {
   const handleDrinkChange = (drink: string, checked: boolean) => {
     setFormData(prev => ({
       ...prev,
-      drinks: checked 
+      drinks: checked
         ? [...prev.drinks, drink]
         : prev.drinks.filter(d => d !== drink)
     }));
+  };
+
+  const handleMaterialChange = (materialId: string, checked: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      selectedMaterialIds: checked
+        ? [...prev.selectedMaterialIds, materialId]
+        : prev.selectedMaterialIds.filter(id => id !== materialId)
+    }));
+  };
+
+  // Duração sempre enviada em HORAS para o cálculo.
+  const durationInHours = () => {
+    const v = parseFloat(formData.duration) || 0;
+    return formData.durationUnit === 'minutos' ? v / 60 : v;
   };
 
   const getFullAddress = () => {
@@ -256,8 +284,10 @@ export default function NovoOrcamento() {
       // Remapear para o formato que a API já espera (eventAddress)
       const payload = {
         ...formData,
-        eventAddress: getFullAddress(),
-        services: formData.selectedServiceIds // A API AI vai precisar ler os IDs e buscar as regras no banco
+        duration: String(durationInHours()),
+        eventAddress: formData.addressLater ? '' : getFullAddress(),
+        services: formData.selectedServiceIds, // A API AI vai precisar ler os IDs e buscar as regras no banco
+        materials: formData.selectedMaterialIds,
       };
 
       const { data: { user } } = await supabase.auth.getUser();
@@ -290,8 +320,10 @@ export default function NovoOrcamento() {
       setIsGenerating(true);
       const payload = {
         ...formData,
-        eventAddress: getFullAddress(),
-        services: formData.selectedServiceIds
+        duration: String(durationInHours()),
+        eventAddress: formData.addressLater ? '' : getFullAddress(),
+        services: formData.selectedServiceIds,
+        materials: formData.selectedMaterialIds,
       };
 
       const { data: { user } } = await supabase.auth.getUser();
@@ -350,9 +382,13 @@ export default function NovoOrcamento() {
                   <input type="tel" value={formData.clientPhone} onChange={e => setFormData({...formData, clientPhone: e.target.value})} className="w-full border border-[var(--color-brand-pink2)] rounded-[10px] p-3 text-sm focus:outline-none focus:border-[var(--color-brand-red)] focus:ring-2 focus:ring-[var(--color-brand-red)]/10" placeholder="(31) 9 9999-9999" />
                 </div>
 
-                <div className="col-span-2 md:col-span-1">
+                <div className="col-span-1">
                   <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-1.5 block">Data do Evento *</label>
                   <input type="date" value={formData.eventDate} onChange={e => setFormData({...formData, eventDate: e.target.value})} className="w-full border border-[var(--color-brand-pink2)] rounded-[10px] p-3 text-sm focus:outline-none focus:border-[var(--color-brand-red)] focus:ring-2 focus:ring-[var(--color-brand-red)]/10 text-[var(--color-brand-gray)]" />
+                </div>
+                <div className="col-span-1">
+                  <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-1.5 block">Horário do Evento</label>
+                  <input type="time" value={formData.eventTime} onChange={e => setFormData({...formData, eventTime: e.target.value})} className="w-full border border-[var(--color-brand-pink2)] rounded-[10px] p-3 text-sm focus:outline-none focus:border-[var(--color-brand-red)] focus:ring-2 focus:ring-[var(--color-brand-red)]/10 text-[var(--color-brand-gray)]" />
                 </div>
                 <div className="col-span-2 md:col-span-1">
                   <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-1.5 block">Nome do Evento (Opcional)</label>
@@ -371,6 +407,11 @@ export default function NovoOrcamento() {
                     ))}
                   </select>
                 </div>
+
+                <div className="col-span-2">
+                  <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-1.5 block">Observações (texto livre)</label>
+                  <textarea value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} rows={3} className="w-full border border-[var(--color-brand-pink2)] rounded-[10px] p-3 text-sm focus:outline-none focus:border-[var(--color-brand-red)] focus:ring-2 focus:ring-[var(--color-brand-red)]/10" placeholder="Informações adicionais do pedido, preferências, restrições, etc." />
+                </div>
               </div>
             </section>
 
@@ -382,15 +423,23 @@ export default function NovoOrcamento() {
               </div>
               
               <div className="grid grid-cols-12 gap-x-4 gap-y-4">
+                <div className="col-span-12">
+                  <label className="flex items-center gap-2 text-sm font-dm text-[#5C1F2E] cursor-pointer">
+                    <input type="checkbox" checked={formData.addressLater} onChange={e => setFormData({...formData, addressLater: e.target.checked})} />
+                    Preencher endereço depois (só selecionar o bairro para o orçamento)
+                  </label>
+                </div>
+
+                {!formData.addressLater && (<>
                 <div className="col-span-12 relative">
                   <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-1.5 block">Endereço (Rua + Número) *</label>
                   <div className="relative">
-                    <input 
-                      type="text" 
-                      value={formData.street} 
-                      onChange={e => handleStreetSearch(e.target.value)} 
-                      className="w-full border border-[var(--color-brand-pink2)] rounded-[10px] p-3 pr-10 text-sm focus:outline-none focus:border-[var(--color-brand-red)]" 
-                      placeholder="Busque a rua..." 
+                    <input
+                      type="text"
+                      value={formData.street}
+                      onChange={e => handleStreetSearch(e.target.value)}
+                      className="w-full border border-[var(--color-brand-pink2)] rounded-[10px] p-3 pr-10 text-sm focus:outline-none focus:border-[var(--color-brand-red)]"
+                      placeholder="Busque a rua..."
                     />
                     {isSearchingStreet && <Loader2 className="absolute right-3 top-3 animate-spin text-rose-300" size={16} />}
                   </div>
@@ -431,8 +480,10 @@ export default function NovoOrcamento() {
                   <input type="text" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full border border-[var(--color-brand-pink2)] rounded-[10px] p-3 text-sm focus:outline-none focus:border-[var(--color-brand-red)] bg-gray-50" placeholder="Cidade" />
                 </div>
 
+                </>)}
+
                 <div className="col-span-12 md:col-span-6">
-                  <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-1.5 block">Taxa de Entrega (Bairro Selecionado)</label>
+                  <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-1.5 block">{formData.addressLater ? "Bairro do evento (para a taxa) *" : "Taxa de Entrega (Bairro Selecionado)"}</label>
                   <select 
                     value={availableDeliveryFees.find(f => f.fee_amount === formData.deliveryFee && f.neighborhood.toLowerCase().includes(formData.neighborhood.toLowerCase()))?.neighborhood || ""}
                     onChange={(e) => {
@@ -469,8 +520,14 @@ export default function NovoOrcamento() {
                   <input type="number" min="1" value={formData.guests} onChange={e => setFormData({...formData, guests: e.target.value})} className="w-full border border-[var(--color-brand-pink2)] rounded-[10px] p-3 text-sm focus:outline-none focus:border-[var(--color-brand-red)]" placeholder="0" />
                 </div>
                 <div className="col-span-6">
-                  <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-1.5 block">Duração (Horas) *</label>
-                  <input type="number" min="1" step="0.5" value={formData.duration} onChange={e => setFormData({...formData, duration: e.target.value})} className="w-full border border-[var(--color-brand-pink2)] rounded-[10px] p-3 text-sm focus:outline-none focus:border-[var(--color-brand-red)]" placeholder="0" />
+                  <label className="text-[11px] font-bold text-[var(--color-brand-gray)] uppercase tracking-wider mb-1.5 block">Duração *</label>
+                  <div className="flex gap-2">
+                    <input type="number" min="0" step={formData.durationUnit === 'minutos' ? 5 : 0.5} value={formData.duration} onChange={e => setFormData({...formData, duration: e.target.value})} className="flex-1 border border-[var(--color-brand-pink2)] rounded-[10px] p-3 text-sm focus:outline-none focus:border-[var(--color-brand-red)]" placeholder="0" />
+                    <select value={formData.durationUnit} onChange={e => setFormData({...formData, durationUnit: e.target.value as 'horas' | 'minutos'})} className="border border-[var(--color-brand-pink2)] rounded-[10px] px-3 text-sm bg-white focus:outline-none focus:border-[var(--color-brand-red)]">
+                      <option value="horas">horas</option>
+                      <option value="minutos">minutos</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="col-span-12 mt-2">
@@ -686,6 +743,45 @@ export default function NovoOrcamento() {
                 })}
               </div>
             </section>
+
+            {/* Seção 6 - Materiais e Acessórios */}
+            {availableMaterials.length > 0 && (
+            <section className="bg-white rounded-[10px] shadow-sm p-6">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-8 h-8 rounded-[10px] bg-[var(--color-brand-pink)] text-[var(--color-brand-red)] flex items-center justify-center font-bold">6</div>
+                <h3 className="font-lora font-bold text-[22px] text-[var(--color-brand-wine)]">Materiais e Acessórios</h3>
+              </div>
+              <p className="text-[11px] text-rose-400 mb-4">Selecione os materiais que devem entrar no orçamento. A quantidade segue a regra de cada material.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {availableMaterials.map(mat => {
+                  const isChecked = formData.selectedMaterialIds.includes(mat.id);
+                  return (
+                    <label
+                      key={mat.id}
+                      className={`flex items-start gap-3 p-4 rounded-[10px] border cursor-pointer transition-colors ${
+                        isChecked
+                          ? "bg-[var(--color-brand-pink)] border-[var(--color-brand-red)]"
+                          : "border-[var(--color-brand-pink2)] hover:bg-[var(--color-brand-pink)]"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 mt-0.5 accent-[var(--color-brand-red)] flex-shrink-0"
+                        checked={isChecked}
+                        onChange={(e) => handleMaterialChange(mat.id, e.target.checked)}
+                      />
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-bold text-[var(--color-brand-wine)]">{mat.name}</span>
+                        <span className="text-[11px] text-rose-400 truncate">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(mat.unit_price)}/{mat.unit}
+                        </span>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </section>
+            )}
 
           </div>
 
