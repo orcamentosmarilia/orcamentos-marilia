@@ -42,3 +42,6 @@ next-env.d.ts
 
 # MCP config (contains service keys)
 .mcp.json
+
+# token temporário (nunca commitar)
+token.txt

@@ -16,10 +16,11 @@ Responda APENAS com um JSON válido, sem markdown e sem texto fora do JSON:
     { "description": "nome do item", "quantity": 0, "unit": "unidade", "unit_price": 0.00, "item_type": "food" }
   ],
   "reasoning": [
-    { "item": "...", "calculation": "...", "rule_applied": "...", "choice_reason": "..." }
+    { "item": "título do passo (ex.: '1. Total de unidades', '2. Filtro por tier', '3. Salgados', '4. Bebidas', '5. Bolo', '6. Vasilhame/acessórios')", "calculation": "o cálculo COMPLETO passo a passo, mostrando os números (ex.: 150 pessoas × 9 un/pessoa (1h) = 1350; bolo conta como salgado → 1349 salgados + 1 bolo/pessoa...)", "rule_applied": "quais regras foram usadas", "choice_reason": "por que escolheu esses produtos/quantidades" }
   ]
 }
-"item_type" deve ser um destes: "food" (comida), "beverage" (bebida), "accessory" (material/descartável), "service" (serviço/mão de obra), "fee" (taxa).`;
+"item_type" deve ser um destes: "food" (comida), "beverage" (bebida), "accessory" (material/descartável), "service" (serviço/mão de obra), "fee" (taxa).
+DETALHE CADA passo do cálculo como uma entrada de "reasoning", em ordem: total de unidades → filtro por tier/modalidade → escolha e quantidade de cada grupo de salgados → bebidas (uma por bebida, com ml/garrafa) → bolo → vasilhame e acessórios → taxas. Mostre as contas com os números reais, não resuma.`;
 
 export async function POST(request: Request) {
   try {

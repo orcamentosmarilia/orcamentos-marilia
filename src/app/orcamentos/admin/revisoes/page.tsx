@@ -248,15 +248,20 @@ export default function RevisoesPage() {
                   {showReasoning && (
                     <div className="mt-3 space-y-2">
                       {selected.ai_reasoning.map((r, i) => (
-                        <div key={i} className="p-3 rounded-xl border border-rose-100 bg-[#FAF5F3]">
-                          <p className="font-bold font-dm text-[12px] text-[#5C1F2E] mb-1">{r.item}</p>
-                          <p className="text-[11px] font-mono text-rose-700/80 leading-relaxed mb-1.5">{r.calculation}</p>
-                          {r.choice_reason && (
-                            <p className="text-[11px] text-rose-500/70 font-dm italic leading-relaxed">{r.choice_reason}</p>
-                          )}
-                          {r.rule_applied && (
-                            <p className="text-[10px] text-rose-300 mt-1.5 font-dm">Regra: {r.rule_applied}</p>
-                          )}
+                        <div key={i} className="p-3 rounded-xl border border-rose-100 bg-[#FAF5F3] flex gap-3">
+                          <span className="flex-shrink-0 w-6 h-6 rounded-full bg-rose-100 text-[#5C1F2E] flex items-center justify-center text-[11px] font-bold font-dm">{i + 1}</span>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold font-dm text-[12px] text-[#5C1F2E] mb-1">{r.item}</p>
+                            {r.calculation && (
+                              <pre className="text-[11px] font-mono text-rose-700/90 leading-relaxed mb-1.5 whitespace-pre-wrap break-words bg-white/60 rounded-lg p-2 border border-rose-50">{r.calculation}</pre>
+                            )}
+                            {r.choice_reason && (
+                              <p className="text-[11px] text-rose-500/70 font-dm italic leading-relaxed">{r.choice_reason}</p>
+                            )}
+                            {r.rule_applied && (
+                              <p className="text-[10px] text-rose-300 mt-1.5 font-dm uppercase tracking-wide">Regra: {r.rule_applied}</p>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>

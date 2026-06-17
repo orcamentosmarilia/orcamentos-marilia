@@ -1,0 +1,72 @@
+{
+  "A: 50p 4h café+água descart": {
+    "total_units": 600,
+    "bolos": 1,
+    "accessories": [
+      "Vasilhame=7@15",
+      "Copos isopor=50@0.35",
+      "Pazinha=1@0.15",
+      "Sachê açúcar=25@0.15",
+      "Sachê adoçante=25@0.15",
+      "Copos plásticos 300ml=100@0.4",
+      "Guardanapos=200@0.1"
+    ]
+  },
+  "B: 80p 2h sem café água descart": {
+    "total_units": 800,
+    "bolos": 2,
+    "accessories": [
+      "Vasilhame=10@15",
+      "Copos plásticos 300ml=150@0.4",
+      "Guardanapos=300@0.1"
+    ]
+  },
+  "C: 30p 5h café+porcelana": {
+    "total_units": 350,
+    "bolos": 1,
+    "accessories": [
+      "Vasilhame=5@15",
+      "Pazinha=1@0.15",
+      "Sachê açúcar=15@0.15",
+      "Sachê adoçante=15@0.15",
+      "Guardanapos=100@0.1"
+    ]
+  },
+  "D: 120p 3h café+vidro": {
+    "total_units": 1200,
+    "bolos": 3,
+    "accessories": [
+      "Vasilhame=15@15",
+      "Copos isopor=120@0.35",
+      "Pazinha=1@0.15",
+      "Sachê açúcar=60@0.15",
+      "Sachê adoçante=60@0.15",
+      "Guardanapos=400@0.1"
+    ]
+  },
+  "E: 13p 1h café louça": {
+    "total_units": 100,
+    "bolos": 1,
+    "accessories": [
+      "Vasilhame=2@15",
+      "Copos isopor=13@0.35",
+      "Pazinha=1@0.15",
+      "Sachê açúcar=7@0.15",
+      "Sachê adoçante=7@0.15",
+      "Guardanapos=0@0.1"
+    ]
+  },
+  "F: 100p 6h tudo descart": {
+    "total_units": 1200,
+    "bolos": 2,
+    "accessories": [
+      "Vasilhame=14@15",
+      "Copos isopor=100@0.35",
+      "Pazinha=1@0.15",
+      "Sachê açúcar=50@0.15",
+      "Sachê adoçante=50@0.15",
+      "Copos plásticos 300ml=200@0.4",
+      "Guardanapos=400@0.1"
+    ]
+  }
+}
